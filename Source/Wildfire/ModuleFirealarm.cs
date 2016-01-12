@@ -16,7 +16,6 @@ namespace wildfire
 
         public void Update()
         {
-
             Vessel v = FlightGlobals.ActiveVessel;
             float totalParts = v.parts.Count;
             float partCounter = 0;
@@ -30,7 +29,6 @@ namespace wildfire
                     pp = p.FindModulesImplementing<ModuleWildfire>().First();
                     if (pp.isOnFire == true)
                     {
-                        //Debug.Log("WFAlarm: Fire Detected");
                         activeFires += 1;
                     }
                     if (partCounter == totalParts)
@@ -51,7 +49,6 @@ namespace wildfire
         {
             if (activeFires > 0 && !audioSource.isPlaying)
             {
-                //Debug.Log("WFAlarm: Alarm Sounded");
                 audioSource.Play();
             }
             else if (activeFires > 0 && audioSource.isPlaying)
@@ -66,8 +63,6 @@ namespace wildfire
 
         public void Start()
         {
-
-            Debug.Log("WFAlarm: Activated");
             soundObject = new GameObject();
             soundObject.transform.position = FlightGlobals.ActiveVessel.transform.position;
             audioSource = soundObject.AddComponent<AudioSource>();
