@@ -3,7 +3,7 @@ Add-on for Kerbal Space Program
 
 This adds a pseudo fire simulation to the videogame Kerbal Space Program.
 
-Overheating, bumping into things, crashing, pulling too many Gees(WIP) and other reckless activities may cause a fire to break out in subjected part. The fire will cause the part to gradually overheat. The fire may also spread to adjacent parts causing it to catch fire as well. 
+Overheating, bumping into things, crashing, pulling too many Gees(WIP) and other reckless activities may cause a fire to break out in the subjected part. The fire will cause the part to gradually overheat. The fire may also spread to adjacent parts causing it to catch fire as well. 
 
 No longer "Oh, I didn't really need that part anyway..." You really need the Primary Buffer panel to stay attached for the whole re-entry sequence! It may cause a leak, or a short-circuit, or general spontaneous combustion.
 
