@@ -7,7 +7,7 @@ Overheating, bumping into things, crashing, pulling too many Gees(WIP) and other
 
 No longer "Oh, I didn't really need that part anyway..." You really need the Primary Buffer panel to stay attached for the whole re-entry sequence! It may cause a leak, or a short-circuit, or general spontaneous combustion.
 
-As commander of your sheep, you may want to install and herd your crew to your escape pods when you find your ship on fire and burning. A LES is also recommended. Indecently, the add-on also comes with a fire extinguisher system with built in extinguisher fluid, but it will cost both weight and power.
+As commander of your sheep, you may want to herd your crew to the pre-installed escape pods when you find the ship on fire and burning from enemy attacks. A LES is also highly recommended for launce. Indecently, the add-on also comes with a fire extinguisher system with built in extinguisher fluid, but it cost both weight and power.
 
 Planned features (may or may not come):
 
