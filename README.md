@@ -12,6 +12,10 @@ As commander of your sheep, you may want to herd your crew to the pre-installed 
 
 Indecently, the add-on also comes includeded with a fire extinguisher system with built in extinguisher fluid (currently liquid CO2, until I can find something better), but it cost both extra weight and power (look for an RCS tank clone under Utilities). Once installed and activated, it will automatically try to extinguish fires that may occur on the craft. You can have more than one installed.
 
+More detail:
+
+
+
 
 Required add-ons:
 - ModuleManager (http://forum.kerbalspaceprogram.com/index.php?/topic/50533-105-module-manager-2617-january-10th-with-even-more-sha-and-less-bug/)
