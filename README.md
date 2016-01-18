@@ -2,17 +2,24 @@
 
 Warning: Work in progress!
 
+
 This adds a pseudo fire simulation add-on to the videogame Kerbal Space Program.
+
 
 Overheating, bumping into things, crashing, pulling too many Gees(WIP) and other reckless activities may cause fire to break out in the subjected part. A fire will cause the part to gradually overheat, giving only a few seconds until it disintegrates. There is also a risk that the fire may spread to adjacent parts, leading to an (unfortunate) chain reaction.
 
+
 No more "Oh, I didn't really need that part anyway..." You really need the Primary Buffer panel to stay attached for the whole re-entry sequence! It may cause a leak, or a short-circuit, or general spontaneous combustion.
+
 
 This add-on attempts to introduce less randomness in how failure (fires) occurs, thus a fire will never occur at total random, but can only be caused by something. This encourages taking proactive steps in order to reduce the chance of critical failure, as well as encouraging safe flying (who am I kidding?). 
 
+
 As commander of your sheep, you may want to herd your crew to the pre-installed escape pods when you find the ship on fire and burning from enemy attacks. A LES is also recommended for launch. If you play with a life-support add-on, you may also want to pack potatoes and your stillsuit, in case your craft goes down on Duna...
 
+
 Indecently, the add-on also comes included with a fire extinguisher system with built in extinguisher fluid (currently liquid CO2, until I can find something better), but it cost both extra weight and power (look for an RCS tank clone under Utilities). Once installed and activated, it will automatically try to extinguish fires that may occur on the craft. You can have more than one installed.
+
 
 
 Package contents:
@@ -22,11 +29,13 @@ Package contents:
 1x Various fire hazards.
 
 
+
 More detail:
 -When temperature of a part reaches 70%+ a fire may break out.
 -When a part is on fire, a fire may break out in its connected parts.
 -When a part collides with another object with a velocity of 90% of its rated crash tolerance a fire may break out.
 -When a part explodes, connected parts may catch fire.
+
 
 Whether or not a part will catch fire at either event mentioned above is dependent on type of part and its contents. At its current state it takes into consider:
 - Vacuum and atmosphere (on Kerbin for now).
@@ -36,6 +45,7 @@ Whether or not a part will catch fire at either event mentioned above is depende
 - Explosions, crash velocity etc.
 The mod also tries to calculate where fuel lines between parts are connected (Currently it only works for RCS-thrusters and parts containing monopropellant).
 
+
 Consequently, the mod also considers situations when a fire is doused:
 - Submerging a part in water may douse a fire.
 - In vacuum there is a high chance a fire may douse as long as the part does not contain any oxidizer/crew compartment).
@@ -43,14 +53,17 @@ Consequently, the mod also considers situations when a fire is doused:
 - The automatic fire extinguisher is active.
 - There is a tiny chance a fire may douse itself.
 
+
 - Parts with decouplers are immune to connected explosions.
 - Parts with heatshield does not catch fire.
 - Fuel lines and struts are excluded.
 
 
+
 Required add-ons:
 - ModuleManager (http://forum.kerbalspaceprogram.com/index.php?/topic/50533-105-module-manager-2617-january-10th-with-even-more-sha-and-less-bug/) (Adds mod functionality to all parts in game)
 - Community Resource Pack (https://kerbalstuff.com/mod/974/Community%20Resource%20Pack) (Uses Liquid CO2.)
+
 
 
 Considered features (may or may not come):
@@ -69,6 +82,8 @@ Considered features (may or may not come):
 - Decupler risk, fuel cell risk, RTG risk.
 - Dynamic extinguishing.
 - G-force hazards.
+
+
 
 This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 For more details, check out http://creativecommons.org/licenses/by-nc-sa/4.0/
