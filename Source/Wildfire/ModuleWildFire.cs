@@ -65,7 +65,7 @@ namespace wildfire
 
         public void cacheParts()
         {
-            Debug.Log("WF: " + this.part.name + " is caching connected parts");
+            //Debug.Log("WF: " + this.part.name + " is caching connected parts");
             cachedParts = new List<Part>();
             if (this.part.parent != null)
             {
@@ -332,14 +332,24 @@ namespace wildfire
         }
     
         //UNDER CONSTRUCTION
-        /*
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Test")]
+        
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testx")]
         public float initial;
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testy")]
+        public float initial2;
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testz")]
+        public float initial3;
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testw")]
+        public float initial4;
 
+        /*
         //Notwroking
         private void breakingCheck()
         {
-            float initial = this.part.attachJoint.Joint.axis.x;
+            float initial = this.part.attachJoint.Joint.projectionAngle;
+            float initial2 = this.part.attachJoint.Joint.anchor.magnitude;
+            float initial3 = this.part.attachJoint.Joint.axis.magnitude;
+            float initial4 = this.part.transform.localRotation.eulerAngles.magnitude;
         }
         
         private void groundControlRiskReduction()
@@ -625,6 +635,8 @@ namespace wildfire
             fireLight.type = LightType.Point;
             fireLight.shadows = LightShadows.Hard;
             fireLight.enabled = false;
+            fireLight.intensity = 0f;
+            fireLight.range = 0f;
         }
         
         //Run visual effects
@@ -740,7 +752,7 @@ namespace wildfire
         //Exclude parts
         private void excludeParts()
         {
-            if (this.part.Modules.Contains("ModuleAsteroid") || this.part.Modules.Contains("CModuleStrut") || this.part.Modules.Contains("CModuleFuelLine"))
+            if (this.part.Modules.Contains("ModuleAsteroid") || this.part.Modules.Contains("CModuleStrut") || this.part.Modules.Contains("CModuleFuelLine") || this.part.Modules.Contains("KerbalSeat"))
             {
                 isExcluded = true;
             }
@@ -916,12 +928,6 @@ namespace wildfire
                 //GameEvents.onVesselWasModified.Add(onVesselWasModified);    
             }
             base.OnStart(state);
-        }
-
-        public override void OnAwake()
-        {
-            excludeParts();
-            base.OnAwake();
         }
     }
 }

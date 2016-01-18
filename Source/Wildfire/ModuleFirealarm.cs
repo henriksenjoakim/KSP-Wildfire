@@ -25,7 +25,7 @@ namespace wildfire
         public void checkForFires()
         {
             Vessel v = FlightGlobals.ActiveVessel;
-            if (v != null && v.isEVA != true)
+            if (v != null && v.isEVA != true && v.isCommandable && v.IsControllable)
             {
                 foreach (Part p in v.parts)
                 {
@@ -37,11 +37,14 @@ namespace wildfire
                     {
                         extinguisherCount += 1;
                     }
-                    var pp = p.Modules.OfType<ModuleWildfire>().Single();
-                    pp = p.FindModulesImplementing<ModuleWildfire>().First();
-                    if (pp.isOnFire == true)
+                    if (p.Modules.Contains("ModuleWildfire"))
                     {
-                        activeFires += 1;
+                        var pp = p.Modules.OfType<ModuleWildfire>().Single();
+                        pp = p.FindModulesImplementing<ModuleWildfire>().First();
+                        if (pp.isOnFire == true)
+                        {
+                            activeFires += 1;
+                        }
                     }
                 }
             }

@@ -4,18 +4,12 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
-using System.Collections;
 
 namespace wildfire
-{
+{/*
     [KSPAddon(KSPAddon.Startup.Flight, false)]
     public class ModuleFuleLineBuilder : MonoBehaviour
     {
-        private void onUndock(EventReport er)
-        {
-            Vessel v = FlightGlobals.ActiveVessel;
-            checkFuelLines(v);
-        }
         private void onVesselRollout(ShipConstruct sc)
         {
             Vessel v = FlightGlobals.ActiveVessel;
@@ -25,18 +19,23 @@ namespace wildfire
         {
             checkFuelLines(v);
         }
+        private void onVesselWasModified(Vessel v)
+        {
+            checkFuelLines(v);
+        }
 
         public void Start()
         {
-            checkFuelLines(FlightGlobals.ActiveVessel);
-            GameEvents.onVesselWasModified.Add(checkFuelLines);
+            //checkFuelLines(FlightGlobals.ActiveVessel);
+            GameEvents.onVesselWasModified.Add(onVesselWasModified);
             GameEvents.OnVesselRollout.Add(onVesselRollout);
-            GameEvents.onUndock.Add(onUndock);
-            GameEvents.onVesselLoaded.Add(onVesselLoaded);
+            //GameEvents.onUndock.Add(onUndock);
+            //GameEvents.onVesselLoaded.Add(onVesselLoaded);
         }
 
         private void checkFuelLines(Vessel v)
         {
+            if (v.isCommandable == false || v.IsControllable == false || v.isEVA || HighLogic.LoadedSceneIsFlight != false) return;
             foreach (Part p in v.parts)
             {
                 if (p.Modules.Contains("ModuleWildfire"))
@@ -47,18 +46,7 @@ namespace wildfire
                         pm = p.FindModulesImplementing<ModuleWildfire>().First();
                         pm.hasMonoPropLine = true;
                     }
-                    /*
-                    //Notworking
-                    if ((p.Modules.OfType<ModuleEnginesFX>().Any(x => x.propellants.Any(y => y.name == "Oxidizer"))) || (p.Modules.OfType<ModuleEngines>().Any(x => x.propellants.Any(y => y.name == "Oxidizer"))) || p.Modules.Contains("ModuleDockingNode") || p.Resources.Contains("MonoPropellant"))
-                    {
-                        pm.hasOxidizerLine = true;
-                    }
-                    if ((p.Modules.OfType<ModuleEnginesFX>().Any(x => x.propellants.Any(y => y.name == "LiquidFuel"))) || (p.Modules.OfType<ModuleEngines>().Any(x => x.propellants.Any(y => y.name == "LiquidFuel"))) || p.Modules.Contains("ModuleDockingNode") || p.Resources.Contains("MonoPropellant"))
-                    {
 
-                        pm.hasLiquidFuelLine = true;
-                    }
-                    */
                 }
             }
             foreach (Part p in v.parts)
@@ -79,20 +67,12 @@ namespace wildfire
                                 {
                                     pm.hasMonoPropLine = true;
                                 }
-                                /*
-                                if (cpm.hasOxidizerLine)
-                                {
-                                    pm.hasOxidizerLine = true;
-                                }
-                                if (cpm.hasLiquidFuelLine)
-                                {
-                                    pm.hasLiquidFuelLine = true;
-                                }*/
+
                             }
                         }
                     }
                 }
             }
         }
-    }
+    }*
 }
