@@ -12,9 +12,7 @@ namespace wildfire
         [KSPField(isPersistant = true)]
         public bool autoActivated = false;
 
-        public bool sprinklerActivated = false;
-
-        [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, externalToEVAOnly = false, guiActiveUnfocused = false, guiName = "AutoExtinguish On")]
+        [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, externalToEVAOnly = false, guiActiveUnfocused = false, guiName = "Deactivated")]
         public void autoActivate()
         {
             if (!autoActivated)
@@ -25,7 +23,7 @@ namespace wildfire
             }
         }
 
-        [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, externalToEVAOnly = false, guiActiveUnfocused = false, guiName = "AutoExtinguish Off")]
+        [KSPEvent(active = true, guiActive = true, guiActiveEditor = true, externalToEVAOnly = false, guiActiveUnfocused = false, guiName = "Activated")]
         public void autoDeactivate()
         {
             if (autoActivated)
@@ -45,7 +43,6 @@ namespace wildfire
 
         public override void OnAwake()
         {
-
             if (!autoActivated)
             {
                 ToggleEvent("autoDeactivate", false);

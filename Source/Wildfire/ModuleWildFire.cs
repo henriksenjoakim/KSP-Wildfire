@@ -9,20 +9,13 @@ namespace wildfire
 {
     public class ModuleWildfire : PartModule
     {
-        [KSPField(isPersistant = true)]
-        public bool isOnFire = false;
-
-        [KSPField(isPersistant = true)]
+        public bool hasFireExtinguisher = false;
         public bool autoExtinguisherIsOn = false;
-
-        [KSPField(isPersistant = true)]
         public bool isDecoupler = false;
-
-        [KSPField(isPersistant = true)]
         public bool isHeatshield = false;
-
-        public float chanceOfFire = 99;
-        public double baseRiskOfFireOverHeat = 10;
+        public bool isExcluded = true;
+        public bool hasMonoPropLine = false;
+        public double baseRiskOfFireOverHeat = 20;
         public double baseRiskOfFireSpread = 10;
         public double baseRiskOfFireExplosions = 20;
         public double baseRiskOfFireBumping = 10;
@@ -31,147 +24,232 @@ namespace wildfire
         public double riskOfFireExplosions;
         public double riskOfFireBumping;
         public double previousTemp = 1;
-        public double tempThreshold;
-        public float currentWeatherType;
-        public bool warningSoundShouldSound = false;
-        public bool hasFireExtinguisher = false;
+        public bool inOxygenAtmo = false;
+        public bool inAtmosphere = false;
+        public bool hasOxidizer = false;
+        public bool hasMonoprop = false;
+        public bool hasCabin = false;
+        public bool hasEngine = false;
+        public bool hasSolidFuel = false;
+        public bool hasLiquidFuel = false;
+        public bool hasElectricCharge = false;
+        public bool isPaused = false;
+        public bool isOnFire = false;
+        public int parent = 0;
+
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Risk")]
+        public double totalAddedRisk = 0;
 
         private GameObject smokeFx;
         private GameObject fireFx;
         private GameObject sparkFx;
+        private GameObject extinguisherFx;
+        private Light fireLight;
+        private Color lightColorYellow = new Color(240, 184, 49);
+        private Color lightColorRed = new Color(237, 49, 12);
+        private Color lightColorWhite = new Color(255, 255, 255);
 
-        AudioSource fireAudio;
-        AudioSource extinguishAudio;
+        public AudioSource fireAudio;
+        public AudioSource extinguishAudio;
+        public AudioSource hissAudio;
+        public AudioSource vacuumAudio;
 
-        public Part cachedParent;
-        public Stack<Part> cachedChildren = new Stack<Part>();
-        
-        public void cacheParts()
+        public List<Part> cachedParts;
+       
+        //For use with onPartDie
+        public void checkParts()
         {
-            //excludeParts();
-            riskCalculation();
-            if (this.part.parent != cachedParent)
-            {
-                cachedParent = this.part.parent;
-            }
-            if (this.part.children.Count != 0)
-            {
-                foreach (Part cpp in this.part.children)
-                {
-                    if (cpp.parent == this.part)
-                    {
-                        cachedChildren.Push(cpp);
-                        //does this need to be stopped?
-                    }    
-                }
-            }
+            if (cachedParts.Count == (this.part.children.Count + parent)) return;
+            cacheParts();
         }
 
+        public void cacheParts()
+        {
+            Debug.Log("WF: " + this.part.name + " is caching connected parts");
+            cachedParts = new List<Part>();
+            if (this.part.parent != null)
+            {
+                cachedParts.Add(this.part.parent);
+                parent = 1;
+            }
+            else
+            {
+                parent = 0;
+            }
+            if (this.part.children.Count > 0)
+            {
+                foreach (Part p in this.part.children)
+                {
+                    cachedParts.Add(p);
+                }
+            } 
+        }
+        
+        //Check if extinguisher is attached
         private void checkExtinguisherStatus()
         {
-            float partCounter = 0;
-            float totalParts = this.part.vessel.parts.Count;
-            float fireExtinguisherCount = 0;
-            float autoActivatedCount = 0;
-            foreach (Part p in this.vessel.Parts)
-            {
+            int extinguisherCount = 0;
+            int autoExtinguisherCount = 0;
+            foreach (Part p in this.part.vessel.parts)
+            {              
                 if (p.Modules.Contains("ModuleFireExtinguisher"))
                 {
-                    fireExtinguisherCount += 1;
+                    extinguisherCount += 1;
                     var pp = p.Modules.OfType<ModuleFireExtinguisher>().Single();
                     pp = p.FindModulesImplementing<ModuleFireExtinguisher>().First();
                     if (pp.autoActivated)
                     {
-                        autoActivatedCount += 1;
-                    }
-                    if (partCounter == totalParts)
-                    {
-                        if (fireExtinguisherCount > 0)
-                        {
-                            hasFireExtinguisher = true;
-                            if (autoActivatedCount > 0)
-                            {
-                                autoExtinguisherIsOn = true;
-                            } 
-                            else
-                            {
-                                autoExtinguisherIsOn = false;
-                            }
-                        }
-                        else
-                        {
-                            hasFireExtinguisher = false;
-                            autoExtinguisherIsOn = false;
-                        }
-                        fireExtinguisherCount = 0;
-                        partCounter = 0;
-                        autoActivatedCount = 0;
-                    }
+                        autoExtinguisherCount += 1;
+                    } 
+                }
+            }
+            if (extinguisherCount > 0)
+            {
+                hasFireExtinguisher = true;
+                if (autoExtinguisherCount > 0)
+                {
+                    autoExtinguisherIsOn = true;
+                }
+                else
+                {
+                    autoExtinguisherIsOn = false;
+                }
+            }
+            else
+            {
+                hasFireExtinguisher = false;
+                autoExtinguisherIsOn = false;
+            }
+            extinguisherCount = 0;
+            autoExtinguisherCount = 0;
+        }
+
+        //Extinguisher power usage
+        private void powerUsage()
+        {
+            if (!hasFireExtinguisher) return;
+            if (hasFireExtinguisher)
+            {
+                if (autoExtinguisherIsOn)
+                {
+                    this.part.RequestResource("ElectricCharge", 0.01);
                 }
             }
         }
-
+        
+        //Extinguishers
         private void extinguisher()
         {
-            if (isOnFire && hasFireExtinguisher && autoExtinguisherIsOn)
+            if (!isOnFire) return;
+            if (isOnFire)
             {
-                double totalWater = 0;
-                float counter = 0;
-                float totalParts = this.part.vessel.parts.Count;
-                foreach (Part p in this.part.vessel.parts)
+                //Any random luck
+                float dice = UnityEngine.Random.Range(0, 100);
+                if (dice == 1)
                 {
-                    if (p.Resources["LiquidLuck"].amount > 0)
+                    douse();
+                    vacuumAudio.Play();
+                }
+
+                //Submerged in water
+                double dice2 = Convert.ToDouble(UnityEngine.Random.Range(0, 100) / 100);
+                if (hasCabin && hasOxidizer && hasMonoprop && hasSolidFuel && this.part.WaterContact)
+                {
+                    if ((this.part.submergedPortion / 2) > dice2)
                     {
-                        totalWater += p.Resources["LiquidLuck"].amount;
+                        douse();
+                        hissAudio.Play();
                     }
-                    if (counter == totalParts)
+                }
+                else
+                {
+                    if (this.part.submergedPortion > dice2 && this.part.WaterContact)
                     {
-                        if (totalWater >= this.part.mass)
+                        douse();
+                        hissAudio.Play();
+                    }
+                }
+
+                //In vacuum
+                if (!inOxygenAtmo && !hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop)
+                {
+                    float dice3 = UnityEngine.Random.Range(0, 100);
+                    if (dice < 50)
+                    {
+                        douse();
+                        vacuumAudio.Play();
+                    }
+                }
+
+                //Not carrying anything particulary combustable
+                if (!hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop && !hasLiquidFuel && !hasLiquidFuel && !hasElectricCharge)
+                {
+                    float dice3 = UnityEngine.Random.Range(0, 100);
+                    if (dice < 5)
+                    {
+                        douse();
+                        vacuumAudio.Play();
+                    }
+                }
+
+                //Fire extinguisher part function
+                //Idea: integrate LF mod to dump oxygen instead.
+                if (hasFireExtinguisher && autoExtinguisherIsOn)
+                {
+                    double totalWater = 0;
+                    double totalCharge = 0;
+                    foreach (Part p in this.part.vessel.parts)
+                    {
+                        if (p.Resources.Contains("LqdCO2") && p.Resources["LqdCO2"].amount > 0)
                         {
-                            if (chanceOfFire < 50)
-                            {
-                                this.part.RequestResource("LiquidLuck", this.part.mass);
-                                extinguishAudio.Play(); //hmm?
-                                isOnFire = false;
-                            }
+                            totalWater += p.Resources["LqdCO2"].amount;
                         }
-                        totalWater = 0;
-                        counter = 0;
+                        if (p.Resources.Contains("ElectricCharge") && p.Resources["ElectricCharge"].amount > 0)
+                        {
+                            totalCharge += p.Resources["ElectricCharge"].amount;
+                        }
                     }
+                    if (totalWater >= (this.part.mass * 20) && totalCharge >= (this.part.mass * 10))
+                    {
+                        this.part.RequestResource("LqdCO2", (this.part.mass * 20));
+                        this.part.RequestResource("ElectricCharge", (this.part.mass * 10));
+                        extinguishAudio.Play();
+                        int dice3 = UnityEngine.Random.Range(0, 100);
+                        if (dice3 <= 80)
+                        {
+                            douse();
+                        }
+                    }
+                    totalWater = 0;
+                    totalCharge = 0;
                 }
             }
         }
 
-        //Calculate for OVERHEATING
-        private void checkOverheat()
+        private void ignitors()
         {
             if (!isOnFire)
             {
-                tempThreshold = ((this.part.skinTemperature / this.part.skinMaxTemp) * 100);
+                //Check for overheating
+                double tempThreshold = ((this.part.skinTemperature / this.part.skinMaxTemp) * 100);
                 if (tempThreshold >= 70)
                 {
-                    riskCalculation();
-                    if (chanceOfFire <= riskOfFireOverHeat)
+                    float dice = UnityEngine.Random.Range(0, 100);
+                    if (dice <= riskOfFireOverHeat)
                     {
                         isOnFire = true;
                     }
                 }
-            }
-        }
 
-        //Calculate for ADJACENT FIRE
-        private void spreadCheck()
-        {
-            if (!isOnFire)
-            {
+                //Check for spreading from adjacent parts
                 if (this.part.parent != null)
                 {
                     var pp = part.parent.Modules.OfType<ModuleWildfire>().Single();
                     pp = part.parent.FindModulesImplementing<ModuleWildfire>().First();
                     if (pp.isOnFire == true)
                     {
-                        riskCalculation();
-                        if (chanceOfFire <= riskOfFireSpread)
+                        float dice = UnityEngine.Random.Range(0, 100);
+                        if (dice <= riskOfFireSpread)
                         {
                             isOnFire = true;
                         }
@@ -185,53 +263,38 @@ namespace wildfire
                     cpm = cp.FindModulesImplementing<ModuleWildfire>().First();
                     if (cpm.isOnFire == true)
                     {
-                        riskCalculation();
-                        if (chanceOfFire <= riskOfFireSpread)
+                        float dice = UnityEngine.Random.Range(0, 100);
+                        if (dice <= riskOfFireSpread)
                         {
-                            //Debug.Log("WF: Inherit WF from children");
                             isOnFire = true;
                         }
                     }
                 }
             }
-        }
+        }   
 
-        //Calculate for COLLISIONS
-        private void onCollision(Part p, Collision c)
+        //Check for COLLISIONS
+        public void fOnCollisionEnter(Collision c)
         {
-            riskCalculation();
-            if (this.part == p && c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && chanceOfFire <= riskOfFireBumping)
-            {
+            float dice = UnityEngine.Random.Range(0, 100);       
+            if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && dice <= riskOfFireBumping)
+            {                
                 isOnFire = true;
             }
         }
 
-        //Calculate for PART LOSS
+        //Check for PART LOSS
         private void onPartDie(Part p)
-        {
-            //cacheParts(); 
-            soundHandler();
-            riskCalculation();
-            if (p == cachedParent)
-            {
-                var pm = p.Modules.OfType<ModuleWildfire>().Single();
-                pm = p.FindModulesImplementing<ModuleWildfire>().First();
-                double riskOfFireExplosionsFinal = (riskOfFireExplosions + (pm.riskOfFireExplosions/2)); 
-                if (chanceOfFire <= riskOfFireExplosionsFinal)
-                {
-                    //Debug.Log("WF: Inherit WF from parent EXPLOSION");
-                    isOnFire = true;
-                }
-            }
-           
-            foreach (Part pt in cachedChildren)
-            {
+        {          
+            foreach (Part pt in cachedParts)
+            {       
                 if (p == pt)
-                {
-                    var pm = p.Modules.OfType<ModuleWildfire>().Single();
-                    pm = p.FindModulesImplementing<ModuleWildfire>().First();
-                    double riskOfFireExplosionsFinal = (riskOfFireExplosions + (pm.riskOfFireExplosions / 2)); 
-                    if (chanceOfFire <= riskOfFireExplosionsFinal)
+                {                   
+                    var pm = pt.Modules.OfType<ModuleWildfire>().Single();
+                    pm = pt.FindModulesImplementing<ModuleWildfire>().First();
+                    double riskOfFireExplosionsFinal = (riskOfFireExplosions + (pm.riskOfFireExplosions / 2));
+                    float dice = UnityEngine.Random.Range(0, 100);
+                    if (dice <= riskOfFireExplosions)
                     {
                         isOnFire = true;
                     }
@@ -242,67 +305,43 @@ namespace wildfire
         //Fire function
         private void combust()
         {
-            bool toggler = false;
-            if (isOnFire)
+            if (isOnFire == false) return;
+            if (isOnFire == true) 
             { 
-                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / 500);
+                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / (16000 / totalAddedRisk));
                 previousTemp = this.part.skinTemperature;
-                if (!toggler)
+                if (fireAudio != null)
                 {
-                    smoke();
-                    toggler = true;
-                }
-            }
-            if (!isOnFire)
-            {
-                previousTemp = this.part.skinTemperature;
-                if (toggler)
-                {
-                    smoke();
-                    toggler = false;
-                }
+                    if (!fireAudio.isPlaying)
+                    {
+                        fireAudio.Play();
+                    }
+                }        
             }
         }
 
-        //Ticker
-        float timerCurrent = 0f;
-        float timerTotal = 2f;
-
-        private void tickRate()
+        //Douse fire function
+        public void douse()
         {
-            timerCurrent += Time.deltaTime;
-            if (timerCurrent >= timerTotal)
+            isOnFire = false;
+            previousTemp = this.part.skinTemperature;
+            if (fireAudio.isPlaying && fireAudio != null)
             {
-                timerCurrent -= timerTotal;
-                chanceOfFire = UnityEngine.Random.Range(0, 100);
-                checkOverheat();
-                spreadCheck();
-                extinguisher();
-                visualQue();
+                fireAudio.Stop();
             }
         }
-
-        private void excludeParts()
-        {
-            if (this.part.Modules.Contains("ModuleDecouple") || this.part.Modules.Contains("ModuleAnchoredDecoupler"))
-            {
-                isDecoupler = true;
-            }
-            if (this.part.Modules.Contains("ModuleHeatshield"))
-            {
-                isHeatshield = true;
-            }
-        }
-
+    
+        //UNDER CONSTRUCTION
         /*
-         //UNDER CONSTRUCTION
-         
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Test")]
+        public float initial;
+
+        //Notwroking
         private void breakingCheck()
         {
-            //breakingforce breaking torque
+            float initial = this.part.attachJoint.Joint.axis.x;
         }
         
-
         private void groundControlRiskReduction()
         {
             //add antenna
@@ -323,7 +362,7 @@ namespace wildfire
                 }
             }
         }
-        */
+        
         private void activeCrewRiskReduction()
         {
             float crewCounter = 0;
@@ -363,7 +402,7 @@ namespace wildfire
                     {
                         expRiskReduction *= 2;
                     }
-                    /*
+                    
                     if (pcm.trait.Contains("Engineer"))
                     {
                         //improve improve ability to douse
@@ -375,7 +414,7 @@ namespace wildfire
                     if (pcm.trait.Contains("Scientest"))
                     {
                         //get
-                    }*/
+                    }
 
                     if (crewCounter == this.part.vessel.GetCrewCount())
                     {
@@ -384,7 +423,7 @@ namespace wildfire
                 }
             }
         }
-     /*
+
         private void weatherRisk()
         {  
             //add space risk?
@@ -402,173 +441,239 @@ namespace wildfire
                 currentWeatherType = UnityEngine.Random.Range(0, 3);
             }
         }
-
-        //WIP
-        private void ModuleTypeRisk()
-        {
-            if (this.part.Modules.Contains("ModuleCommand"))
-            {
-                var p = this.part.Modules.OfType<ModuleCommand>().Single();
-                p = this.part.FindModulesImplementing<ModuleCommand>().First();
-                if (p.minimumCrew > 0)
-                {
-                    //add risk
-                }
-            }
-            if (this.part.Modules.Contains("ModuleCommand"))
-            {
-
-            }
-        }
+        //Ideas:
+          //decupler explosives
+         //fuel cell risk
+         //rtg risk
+           //Weather Risk
+           //riskMultiplier -= (currentWeatherType*5);
+           //Atmospheric Risk
+         //solar flare chance
+      //explosion light
         */
-
-        public bool visibleFire = false;
-
+        
+        //Calculate Risk of part
+        //Make more realistic
         private void riskCalculation()
         {
             double addedRisk = 0;
             double riskMultiplier = 1;
 
-            //atmospheric risk
+            //Add risk for fuel fuel lines
+            //Only Monoprop functioning at the moment
+            if (hasMonoPropLine)
+            {
+                addedRisk += 5;
+                riskMultiplier += 0.05;
+            }
+
+            //Add risk for cabin
+            if (this.part.CrewCapacity > 0)
+            {
+                hasCabin = true;
+                riskMultiplier += 0.2;
+            }
+            else
+            {
+                hasCabin = false;
+            }
+
+            //Add risk for engine
+            if (this.part.Modules.Contains("ModuleEnginesFX") || this.part.Modules.Contains("ModuleEngines"))
+            {
+                hasEngine = true;
+                addedRisk += 10;
+            }
+            else
+            {
+                hasEngine = false;
+            }
+
+            //Add atmospheric risk
             CelestialBody CB = this.part.vessel.mainBody;
             if (CB.atmosphere == true)
             {
                 if (this.part.vessel.altitude < CB.atmosphereDepth)
                 {
-                    //Weather Risk
-                    //riskMultiplier -= (currentWeatherType*5);
-                    //Atmospheric Risk
+                    inAtmosphere = true;
                     if (CB.atmosphereContainsOxygen)
                     {
                         riskMultiplier += 0.2;
-                        visibleFire = true;
+                        inOxygenAtmo = true;
                     }
                     else
                     {
-                        visibleFire = false;
+                        inOxygenAtmo = false;
                     }
+                }
+                else
+                {
+                    inAtmosphere = false;
                 }
             }
 
-            //check for fules
-            float resourceCounter = 0;
+            //Check for resource containers
             double oxidizerRisk = 0;
             double liquidFuelRisk = 0;
             double monoPropellantRisk = 0;
-
+            double solidFuelRisk = 0;
+            //double electricChargeRisk = 0;
             if (this.part.Resources.Count > 0)
             {
                 foreach (PartResource r in this.part.Resources)
                 {
-                    resourceCounter += 1;
+                    if (r.resourceName.Contains("ElectricCharge") && r.amount > 0)
+                    {
+                        hasElectricCharge = true;
+                        //electricChargeRisk = (r.amount / r.maxAmount * 10);
+                        riskMultiplier += (r.amount / r.maxAmount * 0.05);
+                    }
+                    else
+                    {
+                        hasElectricCharge = false;
+                    }
                     if (r.resourceName.Contains("Oxidizer") && r.amount > 0)
                     {
-                        oxidizerRisk = (r.amount / r.maxAmount * 20);
+                        
+                        hasOxidizer = true;
+                        oxidizerRisk += (r.amount / r.maxAmount * 20);
+                        riskMultiplier += (r.amount / r.maxAmount * 0.2);
+                    }
+                    else
+                    {
+                        hasOxidizer = false;
                     }
                     if (r.resourceName.Contains("LiquidFuel") && r.amount > 0)
                     {
-                        liquidFuelRisk = (r.amount / r.maxAmount * 10);
+                        hasLiquidFuel = true;
+                        liquidFuelRisk += (r.amount / r.maxAmount * 20);
+                    }
+                    else
+                    {
+                        hasLiquidFuel = false;
                     }
                     if (r.resourceName.Contains("MonoPropellant") && r.amount > 0)
                     {
-                        monoPropellantRisk = (r.amount / r.maxAmount * 20);
+                        hasMonoprop = true;
+                        monoPropellantRisk += (r.amount / r.maxAmount * 20);
+                        riskMultiplier += (r.amount / r.maxAmount * 0.2);
                     }
-                    if (resourceCounter == this.part.Resources.Count)
+                    else
                     {
-                        addedRisk = (monoPropellantRisk + liquidFuelRisk + oxidizerRisk);
-                        resourceCounter = 0;
-                        oxidizerRisk = 0;
-                        liquidFuelRisk = 0;
-                        monoPropellantRisk = 0;
+                        hasMonoprop = false;
+                    }
+                    if (r.resourceName.Contains("SolidFuel") && r.amount > 0)
+                    {
+                        hasSolidFuel = true;
+                        solidFuelRisk += (r.amount / r.maxAmount * 10);
+                        riskMultiplier += (r.amount / r.maxAmount * 0.1);
+                    }
+                    else
+                    {
+                        hasSolidFuel = false;
                     }
                 }
+                addedRisk += (monoPropellantRisk + liquidFuelRisk + oxidizerRisk + solidFuelRisk);
+                oxidizerRisk = 0;
+                liquidFuelRisk = 0;
+                monoPropellantRisk = 0;
+                solidFuelRisk = 0;
             }
 
+            //Final calculations           
             riskOfFireOverHeat = (baseRiskOfFireOverHeat + addedRisk) * riskMultiplier;
             riskOfFireSpread = (baseRiskOfFireSpread + addedRisk) * riskMultiplier;
             riskOfFireExplosions = (baseRiskOfFireExplosions + addedRisk) * riskMultiplier;
             riskOfFireBumping = (baseRiskOfFireBumping + addedRisk) * riskMultiplier;
+            totalAddedRisk = (baseRiskOfFireExplosions + addedRisk) * riskMultiplier;
             addedRisk = 0;
             riskMultiplier = 1;
         }
-        
-        //Visuals
-        private void visualQue()
-        {
-            bool toggler = false;
-            if (isOnFire)
-            {
-                this.part.SetHighlightDefault();
-                this.part.SetHighlightColor(Color.red);
-                this.part.SetHighlightType(Part.HighlightType.AlwaysOn);
-                this.part.SetHighlight(true, false);
-                soundHandler();               
-                toggler = true;
-            }
-            if (!isOnFire && toggler == true)
-            {
-                this.part.SetHighlightDefault();
-                soundHandler();              
-                toggler = false;
-            }
-        }
 
-        private void particleFx()
+        //Set up visual effects
+        private void setupVisualFx()
         {
             fireFx = (GameObject)GameObject.Instantiate(UnityEngine.Resources.Load("Effects/fx_exhaustFlame_yellow"));
-            //fireFx.transform.parent = this.part.transform;
             fireFx.transform.position = this.part.transform.position;
             fireFx.particleEmitter.localVelocity = Vector3.zero;
             fireFx.particleEmitter.useWorldSpace = true;
             fireFx.particleEmitter.emit = false;
-            fireFx.particleEmitter.minEnergy = 0;
-            fireFx.particleEmitter.minEmission = 0;
 
             smokeFx = (GameObject)GameObject.Instantiate(UnityEngine.Resources.Load("Effects/fx_smokeTrail_light"));
-            //smokeFx.transform.parent = this.part.transform;
             smokeFx.transform.position = this.part.transform.position;
             smokeFx.particleEmitter.localVelocity = Vector3.zero;
             smokeFx.particleEmitter.useWorldSpace = true;
             smokeFx.particleEmitter.emit = false;
-            smokeFx.particleEmitter.minEnergy = 0;
-            smokeFx.particleEmitter.minEmission = 0;
+            smokeFx.particleEmitter.minEnergy = 5;
+            smokeFx.particleEmitter.minEmission = 5;
 
             sparkFx = (GameObject)GameObject.Instantiate(UnityEngine.Resources.Load("Effects/fx_exhaustSparks_flameout"));
-            //sparkFx.transform.parent = this.part.transform;
             sparkFx.transform.position = this.part.transform.position;
             sparkFx.particleEmitter.localVelocity = Vector3.zero;
             sparkFx.particleEmitter.useWorldSpace = true;
             sparkFx.particleEmitter.emit = false;
-            sparkFx.particleEmitter.minEnergy = 0;
-            sparkFx.particleEmitter.minEmission = 0;
+            sparkFx.particleEmitter.minEnergy = 5;
+            sparkFx.particleEmitter.minEmission = 5;
+
+            extinguisherFx = (GameObject)GameObject.Instantiate(UnityEngine.Resources.Load("Effects/fx_exhaustFlame_white_tiny"));
+            extinguisherFx.transform.position = this.part.transform.position;
+            extinguisherFx.particleEmitter.localVelocity = Vector3.zero;
+            extinguisherFx.particleEmitter.useWorldSpace = true;
+            extinguisherFx.particleEmitter.emit = false;
+
+            fireLight = sparkFx.AddComponent<Light>();
+            fireLight.type = LightType.Point;
+            fireLight.shadows = LightShadows.Hard;
+            fireLight.enabled = false;
         }
         
-        private void smoke()
+        //Run visual effects
+        private void runVisualFX()
         {
+            if (!isOnFire) return;
             if (isOnFire)
             {
+                //Idea: add bubbles for underwater
                 double temperatureRatio = (this.part.skinTemperature / this.part.skinMaxTemp) * 100;
-                smokeFx.transform.position = this.part.transform.position;
-                smokeFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 20));
-                smokeFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 20));
-                smokeFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 100000;
-                smokeFx.particleEmitter.Emit();  
 
                 sparkFx.transform.position = this.part.transform.position;
-                sparkFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 20));
-                sparkFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 20));
+                sparkFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 400));
+                sparkFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 400));
                 sparkFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 100000;
                 sparkFx.particleEmitter.Emit();
+                
+                if (inAtmosphere)
+                {
+                    smokeFx.transform.position = this.part.transform.position;
+                    smokeFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 400));
+                    smokeFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 400));
+                    smokeFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 100000;
+                    smokeFx.particleEmitter.Emit();  
+                }
+                else
+                {
+                    smokeFx.particleEmitter.emit = false;
+                }
 
                 if (temperatureRatio >= 50)
                 {
-                    fireFx.transform.position = this.part.transform.position;
-                    fireFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 80));
-                    fireFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 20));
-                    fireFx.particleEmitter.minEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 160));
-                    fireFx.particleEmitter.minEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 40));
-                    fireFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 100000;
-                    fireFx.particleEmitter.Emit();
+                    if (inOxygenAtmo || hasOxidizer || hasCabin || hasMonoPropLine)
+                    {
+                        fireFx.transform.position = this.part.transform.position;
+                        fireFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 60));
+                        fireFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 18));
+                        fireFx.particleEmitter.minEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 140));
+                        fireFx.particleEmitter.minEmission = Convert.ToSingle(Math.Floor(temperatureRatio / 35));
+                        fireFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 80000;
+                        fireFx.particleEmitter.Emit();
+
+                        fireLight.color = Color.Lerp(lightColorRed, lightColorYellow, UnityEngine.Random.Range(0f, 1f));
+                    } 
+                    else
+                    {
+                        fireLight.color = Color.Lerp(lightColorWhite, lightColorYellow, UnityEngine.Random.Range(0f, 1f));
+                        fireFx.particleEmitter.emit = false;
+                    }
                 }
             }
             else
@@ -576,166 +681,247 @@ namespace wildfire
                 smokeFx.particleEmitter.emit = false;
                 fireFx.particleEmitter.emit = false;
                 sparkFx.particleEmitter.emit = false;
+                
+                if (fireLight != null)
+                {
+                    fireLight.enabled = false;
+                }
             }
         }
 
-        private void soundFx()
+        //Run extinguisher effect
+        private void extinguisherFX()
         {
-            fireAudio = this.part.gameObject.AddComponent<AudioSource>();
-            fireAudio.volume = GameSettings.SHIP_VOLUME;
-            fireAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/BurningSound");
-            fireAudio.loop = true;
-            fireAudio.dopplerLevel = 0;
-            fireAudio.Stop();
-
-            extinguishAudio = this.part.gameObject.AddComponent<AudioSource>();
-            extinguishAudio.volume = GameSettings.SHIP_VOLUME;
-            extinguishAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/ExtinguishSound");
-            extinguishAudio.loop = false;
-            extinguishAudio.dopplerLevel = 0;
-            extinguishAudio.Stop();
-        }
-
-        public void soundHandler()
-        {
-            if (isOnFire && !fireAudio.isPlaying)
+            if (!extinguishAudio.isPlaying || !hissAudio.isPlaying) return;
+            if (extinguishAudio.isPlaying || hissAudio.isPlaying)
             {
-                fireAudio.Play();
-            }
-            else if (isOnFire && fireAudio.isPlaying)
-            {
-                //donothing
+                extinguisherFx.transform.position = this.part.transform.position;
+                extinguisherFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(this.part.mass * 15));
+                extinguisherFx.particleEmitter.maxEmission = Convert.ToSingle(Math.Floor(this.part.mass * 60));
+                extinguisherFx.particleEmitter.minEnergy = Convert.ToSingle(Math.Floor(this.part.mass * 8));
+                extinguisherFx.particleEmitter.minEmission = Convert.ToSingle(Math.Floor(this.part.mass * 30));
+                extinguisherFx.particleEmitter.maxSize = this.part.transform.localScale.sqrMagnitude / 10000;
+                extinguisherFx.particleEmitter.Emit();
             }
             else
             {
-                fireAudio.Stop();
+                extinguisherFx.particleEmitter.emit = false;
             }
         }
 
-        //shortify this
-        public void onVesselWasModified(Vessel v)
+        //Setup audio
+        private void setupAudio()
         {
-            cacheParts();
+            fireAudio = gameObject.AddComponent<AudioSource>();
+            fireAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            fireAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/BurningSound");
+            fireAudio.loop = true;
+            fireAudio.Stop();
+
+            extinguishAudio = gameObject.AddComponent<AudioSource>();
+            extinguishAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            extinguishAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/ExtinguishSound");
+            extinguishAudio.loop = false;
+            extinguishAudio.Stop();
+
+            hissAudio = gameObject.AddComponent<AudioSource>();
+            hissAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            hissAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/HissSound");
+            hissAudio.loop = false;
+            hissAudio.Stop();
+
+            vacuumAudio = gameObject.AddComponent<AudioSource>();
+            vacuumAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            vacuumAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/VacuumSound");
+            vacuumAudio.loop = false;
+            vacuumAudio.Stop();
         }
-        public void onLaunch()
+
+        //Exclude parts
+        private void excludeParts()
         {
-            cacheParts();
+            if (this.part.Modules.Contains("ModuleAsteroid") || this.part.Modules.Contains("CModuleStrut") || this.part.Modules.Contains("CModuleFuelLine"))
+            {
+                isExcluded = true;
+            }
+            else
+            {
+                isExcluded = false;
+            }
+            if (this.part.Modules.Contains("ModuleDecouple") || this.part.Modules.Contains("ModuleAnchoredDecoupler"))
+            {
+                isDecoupler = true;
+            }
+            if (this.part.Modules.Contains("ModuleHeatshield"))
+            {
+                isHeatshield = true;
+            }
         }
-        public void onScenceChange()
+
+        //Ticker
+        private float timerCurrent = 0f;
+        private float timerTotal = 2f;
+        private void tickHandler()
         {
-            cacheParts();
+            timerCurrent += Time.deltaTime;
+            if (timerCurrent >= timerTotal)
+            {              
+                timerCurrent -= timerTotal;
+                excludeParts();
+                riskCalculation();
+                ignitors();
+                checkExtinguisherStatus();
+                extinguisher();
+            }
         }
-        public void onCollision(EventReport data)
+
+        public void OnDestroy()
         {
-            cacheParts();
+            if (fireAudio != null)
+            {
+                fireAudio.Stop();
+            }
+            if (hissAudio != null)
+            {
+                hissAudio.Stop();
+            }
+            if (extinguishAudio != null)
+            {
+                extinguishAudio.Stop();
+            }
+            if (vacuumAudio != null)
+            {
+                vacuumAudio.Stop();
+            }
+            if (fireLight != null)
+            {
+                fireLight.enabled = false;
+            }
+            if (smokeFx != null)
+            {
+                smokeFx.particleEmitter.emit = false;
+            }
+            if (fireFx != null)
+            {
+                fireFx.particleEmitter.emit = false;
+            }
+            if (sparkFx != null)
+            {
+                sparkFx.particleEmitter.emit = false;
+            }
+            if (extinguisherFx != null)
+            {
+                extinguisherFx.particleEmitter.emit = false;
+            }
+            GameEvents.onGamePause.Remove(onGamePause);
+            GameEvents.onGameUnpause.Remove(onGameUnpause);
         }
+
+        public void onGamePause()
+        {
+            isPaused = true;
+            if (fireAudio != null)
+            {
+                fireAudio.volume = 0;
+            }
+        }
+
+        public void onGameUnpause()
+        {
+            isPaused = false;
+            if (fireAudio != null)
+            {
+                fireAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            }
+        }   
         public void onVesselWillDestroy(Vessel v)
         {
-            cacheParts();
-            if (v == FlightGlobals.ActiveVessel)
+            if (v = this.part.vessel)
             {
-                //forgot
+                if (fireLight != null)
+                {
+                    fireLight.enabled = false;
+                }
             }
+        }
+
+        /*
+        //may need
+        public void onVesselWasModified(Vessel v)
+        {
         }
         public void onVesselLoaded(Vessel v)
         {
-            cacheParts();
         }
         public void onVesselChange(Vessel v)
         {
-            cacheParts();
         }
         public void onPartUndock(Part p)
         {
-            cacheParts();
         }
         public void onStageSeparation(EventReport data)
-        {
-            cacheParts();
+        {    
         }
         public void onStageActivate(int i)
-        {
-            cacheParts();
+        {   
         }
         public void onSplashDamage(EventReport data)
-        {
-            cacheParts();
-        }
-        public void onPartUnpack(Part p)
-        {
-            cacheParts();
-        }
-        public void onPartJointBreak(PartJoint pj)
-        {
-            cacheParts();
+        {    
         }
         public void onPartExplode(GameEvents.ExplosionReaction er)
+        {       
+        }       
+        */
+        public void FixedUpdate()
         {
-            cacheParts();
-        }
-        public void onPartDestroyed(Part p)
-        {
-            cacheParts();
-        }
-        public void onOverheat(EventReport data)
-        {
-            cacheParts();
-        }
-        public void onLevelWasLoaded(GameScenes gs)
-        {
-            cacheParts();
-        }
-        public void onLaunch(EventReport data)
-        {
-            cacheParts();
-        }
-        public void onJointBreak(EventReport data)
-        {
-            cacheParts();
-        }
-        public void onEditiorShipModified(ShipConstruct data)
-        {
-            cacheParts();
-        }
-        public void onCrash(EventReport data)
-        {
-            cacheParts();
+            if (!isExcluded)
+            {
+                tickHandler();
+                combust();
+                //breakingCheck();
+                runVisualFX();
+                extinguisherFX();
+                powerUsage();
+                checkParts();
+            }
         }
 
         public override void OnStart(PartModule.StartState state)
         {
-            if (state == StartState.Editor) return;
-        
-            particleFx();
-            soundFx();
-            cacheParts();
-            GameEvents.onCrash.Add(onCrash);
-            GameEvents.onEditorShipModified.Add(onEditiorShipModified);
-            GameEvents.onJointBreak.Add(onJointBreak);
-            GameEvents.onLaunch.Add(onLaunch);
-            GameEvents.onLevelWasLoaded.Add(onLevelWasLoaded);
-            GameEvents.onOverheat.Add(onOverheat);
-            GameEvents.onPartExplode.Add(onPartExplode);
-            GameEvents.onPartJointBreak.Add(onPartJointBreak);
-            GameEvents.onPartUnpack.Add(onPartUnpack);
-            GameEvents.onSplashDamage.Add(onSplashDamage);
-            GameEvents.onStageActivate.Add(onStageActivate);
-            GameEvents.onStageSeparation.Add(onStageSeparation);
-            GameEvents.onPartUndock.Add(onPartUndock);
-            GameEvents.onVesselChange.Add(onVesselChange);
-            GameEvents.onVesselLoaded.Add(onVesselLoaded);
-            GameEvents.onVesselWillDestroy.Add(onVesselWillDestroy);
-            GameEvents.onCollision.Add(onCollision);
-            GameEvents.onVesselWasModified.Add(onVesselWasModified);
-            GameEvents.onPartDie.Add(onPartDie);
+            if (state == StartState.Editor || state == StartState.None) return;
+            excludeParts();
+            if (!isExcluded)
+            {          
+                setupVisualFx();
+                setupAudio();
+                checkExtinguisherStatus(); 
+                riskCalculation();
+                cacheParts();
+                GameEvents.onPartDie.Add(onPartDie);
+                GameEvents.onGamePause.Add(onGamePause);
+                GameEvents.onGameUnpause.Add(onGameUnpause);
+                GameEvents.onVesselWillDestroy.Add(onVesselWillDestroy);
+                //GameEvents.onCrash.Add(onCrash);
+                //GameEvents.onEditorShipModified.Add(onEditiorShipModified);
+                //GameEvents.onJointBreak.Add(onJointBreak);
+                //GameEvents.onLevelWasLoaded.Add(onLevelWasLoaded);
+                //GameEvents.onPartExplode.Add(onPartExplode);
+                //GameEvents.onPartJointBreak.Add(onPartJointBreak);
+                //GameEvents.onSplashDamage.Add(onSplashDamage);
+                //GameEvents.onStageActivate.Add(onStageActivate);
+                //GameEvents.onStageSeparation.Add(onStageSeparation);
+                //GameEvents.onPartUndock.Add(onPartUndock);
+                //GameEvents.onVesselChange.Add(onVesselChange);
+                //GameEvents.onVesselLoaded.Add(onVesselLoaded);
+                //GameEvents.onVesselWasModified.Add(onVesselWasModified);    
+            }
             base.OnStart(state);
         }
 
-        public override void OnUpdate()
+        public override void OnAwake()
         {
-            tickRate();
-            combust();
+            excludeParts();
+            base.OnAwake();
         }
-
     }
 }
