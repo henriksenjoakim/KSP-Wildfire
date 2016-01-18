@@ -14,11 +14,13 @@ As commander of your sheep, you may want to herd your crew to the pre-installed 
 
 Indecently, the add-on also comes included with a fire extinguisher system with built in extinguisher fluid (currently liquid CO2, until I can find something better), but it cost both extra weight and power (look for an RCS tank clone under Utilities). Once installed and activated, it will automatically try to extinguish fires that may occur on the craft. You can have more than one installed.
 
+
 Package contents:
 1x Automatic fire extinguisher part (Monopropellant tank clone under Utilities). When activated it will automatically try to douse fires at the cost of liquid CO2 and electric charge.
 1x Automatic fire alarm (Preinstalled in every cockpit).
 1x Right-click risk info menu.
 1x Various fire hazards.
+
 
 More detail:
 -When temperature of a part reaches 70%+ a fire may break out.
@@ -45,9 +47,11 @@ Consequently, the mod also considers situations when a fire is doused:
 - Parts with heatshield does not catch fire.
 - Fuel lines and struts are excluded.
 
+
 Required add-ons:
 - ModuleManager (http://forum.kerbalspaceprogram.com/index.php?/topic/50533-105-module-manager-2617-january-10th-with-even-more-sha-and-less-bug/) (Adds mod functionality to all parts in game)
 - Community Resource Pack (https://kerbalstuff.com/mod/974/Community%20Resource%20Pack) (Uses Liquid CO2.)
+
 
 Considered features (may or may not come):
 - Gameplay balancing (More realism?).
