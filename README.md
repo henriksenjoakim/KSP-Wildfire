@@ -68,6 +68,7 @@ Considered features (may or may not come):
 - Bubbles.
 - Decupler risk, fuel cell risk, RTG risk.
 - Dynamic extinguishing.
+- G-force hazards.
 
 This work is licensed under a Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
 For more details, check out http://creativecommons.org/licenses/by-nc-sa/4.0/
