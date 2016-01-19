@@ -14,15 +14,21 @@ namespace wildfire
         public bool isDecoupler = false;
         public bool isHeatshield = false;
         public bool isExcluded = true;
-        public bool hasMonoPropLine = false;
-        public double baseRiskOfFireOverHeat = 20;
-        public double baseRiskOfFireSpread = 10;
-        public double baseRiskOfFireExplosions = 20;
-        public double baseRiskOfFireBumping = 10;
+        public double baseRisk = 1;
+        public double overheatRiskMultiplier = 1.2;
+        public double spreadRiskMultiplier = 1.1;
+        public double explosionRiskMultiplier = 1.2;
+        public double bumpingRiskMultiplier = 1.1;
+        public double splashDamageRiskMultiplier = 1.1;
         public double riskOfFireOverHeat;
         public double riskOfFireSpread;
         public double riskOfFireExplosions;
         public double riskOfFireBumping;
+        public double riskOfFireSplashDamage;
+        public double vesselElectricCharge = 0;
+        public double vesselOxidizer = 0;
+        public double vesselLiquidFuel = 0;
+        public double vesselMonoprop = 0;
         public double previousTemp = 1;
         public bool inOxygenAtmo = false;
         public bool inAtmosphere = false;
@@ -33,9 +39,22 @@ namespace wildfire
         public bool hasSolidFuel = false;
         public bool hasLiquidFuel = false;
         public bool hasElectricCharge = false;
+        public bool hasDecoupler = false;
+        public bool hasRTG = false;
+        public bool hasFuelCell = false;
         public bool isPaused = false;
         public bool isOnFire = false;
         public int parent = 0;
+        public bool hasCrossfeed = false;   
+        public bool hasOxidizerLine = false;
+        public bool hasMonoPropLine = false;
+        public bool hasLiquidFuelLine = false;
+        public int hasPotentialLiquidFuelLineChild = 0;
+        public int hasPotentialOxidizerLineChild = 0;
+        public int hasPotentialMonopropLineChild = 0;
+        public bool hasPotentialLiquidFuelLineParent = false;
+        public bool hasPotentialOxidizerLineParent = false;
+        public bool hasPotentialMonopropLineParent = false;
 
         [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Risk")]
         public double totalAddedRisk = 0;
@@ -82,7 +101,7 @@ namespace wildfire
                 {
                     cachedParts.Add(p);
                 }
-            } 
+            }
         }
         
         //Check if extinguisher is attached
@@ -132,18 +151,47 @@ namespace wildfire
             {
                 if (autoExtinguisherIsOn)
                 {
-                    this.part.RequestResource("ElectricCharge", 0.01);
+                    this.part.RequestResource("ElectricCharge", 0.0005);
                 }
             }
         }
         
+        //Extra hazards
+        private void extraHazards()
+        {
+            if (!isOnFire) return;
+            if (isOnFire)
+            {
+                if (this.part.Modules.Contains("ModuleDecouple"))
+                {
+                    var pm = this.part.Modules.OfType<ModuleDecouple>().Single();
+                    pm = this.part.FindModulesImplementing<ModuleDecouple>().First();
+                    float dice = UnityEngine.Random.Range(0, 100);
+                    if (dice == 1)
+                    {
+                        pm.Decouple();
+                    }
+                }
+                if (this.part.Modules.Contains("ModuleAnchoredDecoupler"))
+                {
+                    var pm = this.part.Modules.OfType<ModuleAnchoredDecoupler>().Single();
+                    pm = this.part.FindModulesImplementing<ModuleAnchoredDecoupler>().First();
+                    float dice = UnityEngine.Random.Range(0, 100);
+                    if (dice == 1)
+                    {
+                        pm.Decouple();
+                    }
+                }
+            }
+        }
+
         //Extinguishers
         private void extinguisher()
         {
             if (!isOnFire) return;
             if (isOnFire)
             {
-                //Any random luck
+                //Random luck
                 float dice = UnityEngine.Random.Range(0, 100);
                 if (dice == 1)
                 {
@@ -182,7 +230,7 @@ namespace wildfire
                 }
 
                 //Not carrying anything particulary combustable
-                if (!hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop && !hasLiquidFuel && !hasLiquidFuel && !hasElectricCharge)
+                if (!hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop && !hasLiquidFuel && !hasLiquidFuel && !hasElectricCharge && !hasRTG && !hasDecoupler)
                 {
                     float dice3 = UnityEngine.Random.Range(0, 100);
                     if (dice < 5)
@@ -232,7 +280,7 @@ namespace wildfire
             {
                 //Check for overheating
                 double tempThreshold = ((this.part.skinTemperature / this.part.skinMaxTemp) * 100);
-                if (tempThreshold >= 70)
+                if (tempThreshold >= 70 && isHeatshield == false)
                 {
                     float dice = UnityEngine.Random.Range(0, 100);
                     if (dice <= riskOfFireOverHeat)
@@ -246,7 +294,7 @@ namespace wildfire
                 {
                     var pp = part.parent.Modules.OfType<ModuleWildfire>().Single();
                     pp = part.parent.FindModulesImplementing<ModuleWildfire>().First();
-                    if (pp.isOnFire == true)
+                    if (pp.isOnFire == true && isHeatshield == false)
                     {
                         float dice = UnityEngine.Random.Range(0, 100);
                         if (dice <= riskOfFireSpread)
@@ -261,7 +309,7 @@ namespace wildfire
                     //double tempThresholdChildren = ((cp.skinTemperature / cp.skinMaxTemp) * 100);
                     var cpm = cp.Modules.OfType<ModuleWildfire>().Single();
                     cpm = cp.FindModulesImplementing<ModuleWildfire>().First();
-                    if (cpm.isOnFire == true)
+                    if (cpm.isOnFire == true && isHeatshield == false)
                     {
                         float dice = UnityEngine.Random.Range(0, 100);
                         if (dice <= riskOfFireSpread)
@@ -271,13 +319,25 @@ namespace wildfire
                     }
                 }
             }
-        }   
+        }
+
+        
+        //Check for SPLASH DAMAGE
+        public void onSplashDamage(EventReport er)
+        {
+            float dice = UnityEngine.Random.Range(0, 100);
+            if (er.origin == this.part && dice < riskOfFireSplashDamage && isHeatshield == false)
+            {
+
+            }
+        }
+
 
         //Check for COLLISIONS
         public void fOnCollisionEnter(Collision c)
         {
             float dice = UnityEngine.Random.Range(0, 100);       
-            if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && dice <= riskOfFireBumping)
+            if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && dice <= riskOfFireBumping && isHeatshield == false)
             {                
                 isOnFire = true;
             }
@@ -294,7 +354,7 @@ namespace wildfire
                     pm = pt.FindModulesImplementing<ModuleWildfire>().First();
                     double riskOfFireExplosionsFinal = (riskOfFireExplosions + (pm.riskOfFireExplosions / 2));
                     float dice = UnityEngine.Random.Range(0, 100);
-                    if (dice <= riskOfFireExplosions)
+                    if (dice <= riskOfFireExplosions && isHeatshield == false)
                     {
                         isOnFire = true;
                     }
@@ -308,7 +368,7 @@ namespace wildfire
             if (isOnFire == false) return;
             if (isOnFire == true) 
             { 
-                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / (16000 / totalAddedRisk));
+                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / (15000 / totalAddedRisk));
                 previousTemp = this.part.skinTemperature;
                 if (fireAudio != null)
                 {
@@ -316,7 +376,25 @@ namespace wildfire
                     {
                         fireAudio.Play();
                     }
-                }        
+                }
+                this.part.RequestResource("ElectricCharge", 0.001);
+
+                if (hasLiquidFuel | (hasLiquidFuelLine && vesselLiquidFuel > 0))
+                {
+                    this.part.RequestResource("LiquidFuel", 0.05);
+                }
+                if (hasMonoprop | (hasMonoPropLine && vesselMonoprop > 0))
+                {
+                    this.part.RequestResource("MonoPropellant", 0.05);
+                }
+                if (hasOxidizer | (hasOxidizerLine && vesselOxidizer > 0))
+                {
+                    this.part.RequestResource("Oxidizer", 0.05);
+                }
+                if (hasSolidFuel)
+                {
+                    this.part.RequestResource("SolidFuel", 0.05);
+                }
             }
         }
 
@@ -332,24 +410,25 @@ namespace wildfire
         }
     
         //UNDER CONSTRUCTION
-        
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testx")]
-        public float initial;
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testy")]
-        public float initial2;
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testz")]
-        public float initial3;
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Testw")]
-        public float initial4;
-
         /*
+        float partLocalPosition;
+
+        float parentLocalPosition;
+
+        float currentRelPos;
+
+        float startingRelPos;
+
+        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Offset")]
+        float offset;
+
         //Notwroking
         private void breakingCheck()
         {
-            float initial = this.part.attachJoint.Joint.projectionAngle;
-            float initial2 = this.part.attachJoint.Joint.anchor.magnitude;
-            float initial3 = this.part.attachJoint.Joint.axis.magnitude;
-            float initial4 = this.part.transform.localRotation.eulerAngles.magnitude;
+            partLocalPosition = this.part.transform.localPosition.x;
+            parentLocalPosition = this.part.parent.transform.localPosition.x;
+            currentRelPos = partLocalPosition - parentLocalPosition;
+            offset = startingRelPos - currentRelPos;
         }
         
         private void groundControlRiskReduction()
@@ -464,18 +543,11 @@ namespace wildfire
         
         //Calculate Risk of part
         //Make more realistic
+
         private void riskCalculation()
         {
             double addedRisk = 0;
             double riskMultiplier = 1;
-
-            //Add risk for fuel fuel lines
-            //Only Monoprop functioning at the moment
-            if (hasMonoPropLine)
-            {
-                addedRisk += 5;
-                riskMultiplier += 0.05;
-            }
 
             //Add risk for cabin
             if (this.part.CrewCapacity > 0)
@@ -497,6 +569,57 @@ namespace wildfire
             else
             {
                 hasEngine = false;
+            }
+
+            //Add risk for decoupelrs
+            if (this.part.Modules.Contains("ModuleDecouple") || this.part.Modules.Contains("ModuleAnchoredDecoupler"))
+            {
+                hasDecoupler = true;
+                addedRisk += 5;
+            }
+            else
+            {
+                hasDecoupler = false;
+            }
+
+            //Add risk for RTG
+            if (this.part.name.Contains("rtg"))
+            {
+                hasRTG = true;
+                addedRisk += 10;
+            }
+            else
+            {
+                hasRTG = false;
+            }
+
+            //Add risk for fuel cell
+            if (this.part.name.Contains("FuelCell") || this.part.name.Contains("FuelCellArray"))
+            {
+                hasFuelCell = true;
+                addedRisk += 3;
+            }
+            else
+            {
+                hasFuelCell = false;
+            }
+
+            //Add risk for ISRU
+            if (this.part.name.Contains("ISRU"))
+            {            
+                addedRisk += 4;
+            }
+
+            //Add risk for Goo
+            if (this.part.name.Contains("GooExperiment"))
+            {
+                addedRisk += UnityEngine.Random.Range(0, 10);
+            }
+
+            //Add risk for materials
+            if (this.part.name.Contains("science_module"))
+            {
+                addedRisk += 3;
             }
 
             //Add atmospheric risk
@@ -527,7 +650,7 @@ namespace wildfire
             double liquidFuelRisk = 0;
             double monoPropellantRisk = 0;
             double solidFuelRisk = 0;
-            //double electricChargeRisk = 0;
+            double electricChargeRisk = 0;
             if (this.part.Resources.Count > 0)
             {
                 foreach (PartResource r in this.part.Resources)
@@ -535,7 +658,7 @@ namespace wildfire
                     if (r.resourceName.Contains("ElectricCharge") && r.amount > 0)
                     {
                         hasElectricCharge = true;
-                        //electricChargeRisk = (r.amount / r.maxAmount * 10);
+                        electricChargeRisk = (r.amount / r.maxAmount * 1);
                         riskMultiplier += (r.amount / r.maxAmount * 0.05);
                     }
                     else
@@ -588,14 +711,68 @@ namespace wildfire
                 liquidFuelRisk = 0;
                 monoPropellantRisk = 0;
                 solidFuelRisk = 0;
+                electricChargeRisk = 0;
+            }
+
+            //Add risk for fuel lines
+            vesselElectricCharge = 0;
+            vesselOxidizer = 0;
+            vesselLiquidFuel = 0;
+            vesselMonoprop = 0;
+            foreach (Part p in this.part.vessel.parts)
+            {
+                if (p.Resources.Count > 0)
+                {
+                    foreach (PartResource pr in p.Resources)
+                    {
+                        if (pr.resourceName.Contains("ElectricCharge") && pr.amount > 0)
+                        {
+                            vesselElectricCharge += pr.amount;
+                        }
+                        if (pr.resourceName.Contains("Oxidizer") && pr.amount > 0)
+                        {
+                            vesselOxidizer += pr.amount;
+                        }
+                        if (pr.resourceName.Contains("LiquidFuel") && pr.amount > 0)
+                        {
+                            vesselLiquidFuel += pr.amount;
+                        }
+                        if (pr.resourceName.Contains("MonoPropellant") && pr.amount > 0)
+                        {
+                            vesselMonoprop += pr.amount;
+                        }
+                    }
+                }
+            }
+            
+            if (hasMonoPropLine && vesselMonoprop > 0)
+            {
+                addedRisk += 5;
+                riskMultiplier += 0.05;
+            }
+            if (hasOxidizerLine && vesselOxidizer > 0)
+            {
+                addedRisk += 5;
+                riskMultiplier += 0.05;
+            }
+            if (hasLiquidFuelLine && vesselLiquidFuel > 0)
+            {
+                addedRisk += 3;
+                riskMultiplier += 0.03;
+            }
+            if (vesselElectricCharge > 0)
+            {
+                addedRisk += 5;
+                riskMultiplier += 0.05;
             }
 
             //Final calculations           
-            riskOfFireOverHeat = (baseRiskOfFireOverHeat + addedRisk) * riskMultiplier;
-            riskOfFireSpread = (baseRiskOfFireSpread + addedRisk) * riskMultiplier;
-            riskOfFireExplosions = (baseRiskOfFireExplosions + addedRisk) * riskMultiplier;
-            riskOfFireBumping = (baseRiskOfFireBumping + addedRisk) * riskMultiplier;
-            totalAddedRisk = (baseRiskOfFireExplosions + addedRisk) * riskMultiplier;
+            riskOfFireOverHeat = (baseRisk + addedRisk) * riskMultiplier * overheatRiskMultiplier;
+            riskOfFireSpread = (baseRisk + addedRisk) * riskMultiplier * spreadRiskMultiplier;
+            riskOfFireExplosions = (baseRisk + addedRisk) * riskMultiplier * explosionRiskMultiplier;
+            riskOfFireBumping = (baseRisk + addedRisk) * riskMultiplier * bumpingRiskMultiplier;
+            riskOfFireSplashDamage = ((baseRisk + addedRisk) / 2 ) * riskMultiplier * splashDamageRiskMultiplier;
+            totalAddedRisk = Math.Floor((baseRisk + addedRisk) * riskMultiplier * explosionRiskMultiplier);
             addedRisk = 0;
             riskMultiplier = 1;
         }
@@ -669,7 +846,7 @@ namespace wildfire
 
                 if (temperatureRatio >= 50)
                 {
-                    if (inOxygenAtmo || hasOxidizer || hasCabin || hasMonoPropLine)
+                    if (inOxygenAtmo || hasOxidizer || hasCabin || hasMonoprop || (hasMonoPropLine && vesselMonoprop > 0) || (hasOxidizerLine && vesselOxidizer > 0))
                     {
                         fireFx.transform.position = this.part.transform.position;
                         fireFx.particleEmitter.maxEnergy = Convert.ToSingle(Math.Floor(temperatureRatio / 60));
@@ -752,7 +929,7 @@ namespace wildfire
         //Exclude parts
         private void excludeParts()
         {
-            if (this.part.Modules.Contains("ModuleAsteroid") || this.part.Modules.Contains("CModuleStrut") || this.part.Modules.Contains("CModuleFuelLine") || this.part.Modules.Contains("KerbalSeat"))
+            if (/*this.part.Modules.Contains("ModuleAsteroid") ||*/ this.part.Modules.Contains("CModuleStrut") || this.part.Modules.Contains("CModuleFuelLine") || this.part.Modules.Contains("KerbalSeat") || this.part.PhysicsSignificance == 1)
             {
                 isExcluded = true;
             }
@@ -767,6 +944,10 @@ namespace wildfire
             if (this.part.Modules.Contains("ModuleHeatshield"))
             {
                 isHeatshield = true;
+            }
+            if (this.part.fuelCrossFeed)
+            {
+                hasCrossfeed = true;
             }
         }
 
@@ -784,6 +965,7 @@ namespace wildfire
                 ignitors();
                 checkExtinguisherStatus();
                 extinguisher();
+                extraHazards();
             }
         }
 
@@ -903,7 +1085,7 @@ namespace wildfire
             if (state == StartState.Editor || state == StartState.None) return;
             excludeParts();
             if (!isExcluded)
-            {          
+            {               
                 setupVisualFx();
                 setupAudio();
                 checkExtinguisherStatus(); 
@@ -913,13 +1095,13 @@ namespace wildfire
                 GameEvents.onGamePause.Add(onGamePause);
                 GameEvents.onGameUnpause.Add(onGameUnpause);
                 GameEvents.onVesselWillDestroy.Add(onVesselWillDestroy);
+                GameEvents.onSplashDamage.Add(onSplashDamage);
                 //GameEvents.onCrash.Add(onCrash);
                 //GameEvents.onEditorShipModified.Add(onEditiorShipModified);
                 //GameEvents.onJointBreak.Add(onJointBreak);
                 //GameEvents.onLevelWasLoaded.Add(onLevelWasLoaded);
                 //GameEvents.onPartExplode.Add(onPartExplode);
                 //GameEvents.onPartJointBreak.Add(onPartJointBreak);
-                //GameEvents.onSplashDamage.Add(onSplashDamage);
                 //GameEvents.onStageActivate.Add(onStageActivate);
                 //GameEvents.onStageSeparation.Add(onStageSeparation);
                 //GameEvents.onPartUndock.Add(onPartUndock);
