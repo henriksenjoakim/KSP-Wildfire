@@ -183,6 +183,17 @@ namespace wildfire
                     }
                 }
             }
+            foreach (Part p in v.parts)
+            {
+                if (p.Modules.Contains("ModuleWildfire"))
+                {
+                    var pm = p.Modules.OfType<ModuleWildfire>().Single();
+                    pm = p.FindModulesImplementing<ModuleWildfire>().First();
+                    pm.hasPotentialLiquidFuelLineChild = 0;
+                    pm.hasPotentialLiquidFuelLineChild = 0;
+                    pm.hasPotentialLiquidFuelLineChild = 0;
+                }
+            }
         }
     }
 }

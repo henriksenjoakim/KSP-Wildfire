@@ -13,14 +13,18 @@ namespace wildfire
         public AudioSource generalAlarm;
         public AudioSource panicAlarm;
         public AudioSource clearAudio;
+        public AudioSource creakingAudio;
         GameObject soundObject = new GameObject();
 
         public int activeFires = 0;
         public int extinguisherCount = 0;
         public int commandModules = 0;
+        public int creakingSound = 0;
         public bool delay = false;
         public bool onFire = false;
+        public bool creaking = false;
         public bool commandModulePresent = false;
+        public float creakingAudioVolume = 1;
 
         public void checkForFires()
         {
@@ -45,6 +49,11 @@ namespace wildfire
                         {
                             activeFires += 1;
                         }
+                        if (pp.creakingSoundPlaying)
+                        {
+                            creakingSound += 1;
+                        }
+                        creakingAudioVolume = pp.creakingSoundVolume;
                     }
                 }
             }
@@ -53,6 +62,7 @@ namespace wildfire
                 commandModules = 0;
                 extinguisherCount = 0;
                 activeFires = 0;
+                creakingSound = 0;
             }
             if (activeFires > 0)
             {
@@ -61,6 +71,14 @@ namespace wildfire
             else
             {
                 onFire = false;
+            }
+            if (creakingSound > 0)
+            {
+                creaking = true;
+            }
+            else
+            {
+                creaking = false;
             }
             if (commandModules > 0)
             {
@@ -73,6 +91,7 @@ namespace wildfire
             activeFires = 0;
             commandModules = 0;
             extinguisherCount = 0;
+            creakingSound = 0;
         }
 
         public void clearAudioHandler()
@@ -147,7 +166,7 @@ namespace wildfire
                         generalAlarm.Stop();
                     }
                 }
-                if (generalAlarm != null)
+                if (panicAlarm != null)
                 {
                     if (panicAlarm.isPlaying)
                     {
@@ -157,8 +176,26 @@ namespace wildfire
             }
         }
 
+        public void creakingHandler()
+        {
+            if (creaking)
+            {
+                if (FlightGlobals.ActiveVessel.isEVA == false && commandModulePresent)
+                {
+                    if (creakingAudio != null)
+                    {
+                        if (!creakingAudio.isPlaying)
+                        {
+                            creakingAudio.Play();
+                            creakingAudio.volume = ((GameSettings.SHIP_VOLUME / 3) * creakingAudioVolume);
+                        }
+                    }
+                }
+            } 
+        }
+
         float timerCurrent = 0f;
-        float timerTotal = 2f;
+        float timerTotal = 1f;
 
         private void tickHandler()
         {
@@ -168,6 +205,7 @@ namespace wildfire
                 timerCurrent -= timerTotal;
                 checkForFires();
                 alarmHandler();
+                creakingHandler();
                 clearAudioHandler();
             }
         }
@@ -175,7 +213,7 @@ namespace wildfire
         public void Update()
         {
             tickHandler();
-            if (generalAlarm.isPlaying || panicAlarm.isPlaying || clearAudio.isPlaying)
+            if (generalAlarm.isPlaying || panicAlarm.isPlaying || clearAudio.isPlaying || creakingAudio.isPlaying)
             {
                 soundObject.transform.position = FlightGlobals.ActiveVessel.transform.position;
             }
@@ -207,6 +245,10 @@ namespace wildfire
             {
                 clearAudio.volume = 0;
             }
+            if (creakingAudio != null)
+            {
+                creakingAudio.volume = 0;
+            }
         }
 
         public void onGameUnpause()
@@ -222,6 +264,10 @@ namespace wildfire
             if (clearAudio != null)
             {
                 clearAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            }
+            if (creakingAudio != null)
+            {
+                creakingAudio.volume = GameSettings.SHIP_VOLUME / 3;
             }
         }
 
@@ -239,6 +285,10 @@ namespace wildfire
             {
                 clearAudio.Stop();
             }
+            if (creakingAudio != null)
+            {
+                creakingAudio.Stop();
+            }
             GameEvents.onGamePause.Remove(onGamePause);
             GameEvents.onGameUnpause.Remove(onGameUnpause);
         }
@@ -248,25 +298,31 @@ namespace wildfire
             soundObject.transform.position = FlightGlobals.ActiveVessel.transform.position;
 
             generalAlarm = soundObject.AddComponent<AudioSource>();
-            generalAlarm.volume = GameSettings.SHIP_VOLUME /3;
+            generalAlarm.volume = GameSettings.SHIP_VOLUME / 3;
             generalAlarm.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/WarningSound");
             generalAlarm.loop = true;
             generalAlarm.dopplerLevel = 0;
             generalAlarm.Stop();
 
             panicAlarm = soundObject.AddComponent<AudioSource>();
-            panicAlarm.volume = GameSettings.SHIP_VOLUME /3;
+            panicAlarm.volume = GameSettings.SHIP_VOLUME / 3;
             panicAlarm.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/PanicSound");
             panicAlarm.loop = true;
             panicAlarm.dopplerLevel = 0;
             panicAlarm.Stop();
 
             clearAudio = soundObject.AddComponent<AudioSource>();
-            clearAudio.volume = GameSettings.SHIP_VOLUME /3;
+            clearAudio.volume = GameSettings.SHIP_VOLUME / 3;
             clearAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/ClearSound");
             clearAudio.loop = false;
             clearAudio.dopplerLevel = 0;
             clearAudio.Stop();
+
+            creakingAudio = soundObject.AddComponent<AudioSource>();
+            creakingAudio.volume = GameSettings.SHIP_VOLUME / 3;
+            creakingAudio.clip = GameDatabase.Instance.GetAudioClip("NANA/Wildfire/Sounds/CreakingSound");
+            creakingAudio.loop = false;
+            creakingAudio.Stop();
 
             GameEvents.onGamePause.Add(onGamePause);
             GameEvents.onGameUnpause.Add(onGameUnpause);

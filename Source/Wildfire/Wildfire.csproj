@@ -48,6 +48,7 @@
     <Compile Include="ModuleFuleLineBuilder.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="ModuleSprinkler.cs" />
     <Compile Include="ModuleWildFire.cs" />
     <Compile Include="ModuleFirealarm.cs" />
     <Compile Include="ModuleFireExtinguisher.cs" />

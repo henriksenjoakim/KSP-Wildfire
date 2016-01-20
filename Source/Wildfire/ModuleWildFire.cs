@@ -20,11 +20,13 @@ namespace wildfire
         public double explosionRiskMultiplier = 1.2;
         public double bumpingRiskMultiplier = 1.1;
         public double splashDamageRiskMultiplier = 1.1;
+        public double jointRotationRiskMultiplier = 1.1;
         public double riskOfFireOverHeat;
         public double riskOfFireSpread;
         public double riskOfFireExplosions;
         public double riskOfFireBumping;
         public double riskOfFireSplashDamage;
+        public double riskOfFireJointRotation;
         public double vesselElectricCharge = 0;
         public double vesselOxidizer = 0;
         public double vesselLiquidFuel = 0;
@@ -55,6 +57,11 @@ namespace wildfire
         public bool hasPotentialLiquidFuelLineParent = false;
         public bool hasPotentialOxidizerLineParent = false;
         public bool hasPotentialMonopropLineParent = false;
+        public bool creakingSoundPlaying = false;
+        public bool overRotation = false;
+        public double riskSubstractionMultiplier = 1;
+        public bool sprinklerActvated = false;
+        public bool breakOK = true;
 
         [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Risk")]
         public double totalAddedRisk = 0;
@@ -72,6 +79,7 @@ namespace wildfire
         public AudioSource extinguishAudio;
         public AudioSource hissAudio;
         public AudioSource vacuumAudio;
+        
 
         public List<Part> cachedParts;
        
@@ -219,10 +227,10 @@ namespace wildfire
                 }
 
                 //In vacuum
-                if (!inOxygenAtmo && !hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop)
+                if (!inOxygenAtmo && !hasOxidizer && (!hasOxidizerLine && vesselOxidizer == 0) && !hasCabin && !hasSolidFuel && (!hasMonoPropLine && vesselMonoprop == 0) && !hasMonoprop && !hasElectricCharge && !hasFuelCell)
                 {
                     float dice3 = UnityEngine.Random.Range(0, 100);
-                    if (dice < 50)
+                    if (dice < 90)
                     {
                         douse();
                         vacuumAudio.Play();
@@ -230,10 +238,10 @@ namespace wildfire
                 }
 
                 //Not carrying anything particulary combustable
-                if (!hasOxidizer && !hasCabin && !hasSolidFuel && !hasMonoPropLine && !hasMonoprop && !hasLiquidFuel && !hasLiquidFuel && !hasElectricCharge && !hasRTG && !hasDecoupler)
+                if (!hasOxidizer && (!hasOxidizerLine && vesselOxidizer == 0) && !hasCabin && !hasSolidFuel && (!hasMonoPropLine && vesselMonoprop == 0) && !hasMonoprop && (!hasLiquidFuelLine && vesselLiquidFuel == 0) && !hasLiquidFuel && !hasElectricCharge && !hasRTG && !hasDecoupler && !hasFuelCell)
                 {
                     float dice3 = UnityEngine.Random.Range(0, 100);
-                    if (dice < 5)
+                    if (dice < 60)
                     {
                         douse();
                         vacuumAudio.Play();
@@ -368,7 +376,7 @@ namespace wildfire
             if (isOnFire == false) return;
             if (isOnFire == true) 
             { 
-                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / (15000 / totalAddedRisk));
+                this.part.skinTemperature = previousTemp + (this.part.skinMaxTemp / (10000 / (totalAddedRisk / 2)));
                 previousTemp = this.part.skinTemperature;
                 if (fireAudio != null)
                 {
@@ -403,34 +411,146 @@ namespace wildfire
         {
             isOnFire = false;
             previousTemp = this.part.skinTemperature;
-            if (fireAudio.isPlaying && fireAudio != null)
+            if (fireAudio != null)
             {
-                fireAudio.Stop();
+                if (fireAudio.isPlaying && fireAudio != null)
+                {
+                    fireAudio.Stop();
+                }
             }
         }
     
-        //UNDER CONSTRUCTION
-        /*
-        float partLocalPosition;
+        //UNDER CONSTRUCTION      
+        
+        public float creakingSoundVolume = 1;
+        Quaternion partRot;
+        Quaternion parentRot;
 
-        float parentLocalPosition;
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "X")]
+        public double offsetX;
 
-        float currentRelPos;
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Y")]
+        public double offsetY;
 
-        float startingRelPos;
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Z")]
+        public double offsetZ;
 
-        [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Offset")]
-        float offset;
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "W")]
+        public double offsetW;
 
-        //Notwroking
+        public double prevOffsetX;
+        public double prevOffsetY;
+        public double prevOffsetZ;
+        public double prevOffsetW;
+
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "tX")]
+        public double timeOffsetX;
+
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "tY")]
+        public double timeOffsetY;
+
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "tZ")]
+        public double timeOffsetZ;
+
+        //[KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "tW")]
+        public double timeOffsetW;
+
+        private float hightlighterTimerCurrent = 0f;
+        private float highlighterTimerTotal = 1f;
+        public bool highlighterEnabled = false;
+        private float breakingTimerCurrent = 0f;
+        private float breakingTimerTotal = 2f;
+        public bool breakingIgnite = false;
+
         private void breakingCheck()
         {
-            partLocalPosition = this.part.transform.localPosition.x;
-            parentLocalPosition = this.part.parent.transform.localPosition.x;
-            currentRelPos = partLocalPosition - parentLocalPosition;
-            offset = startingRelPos - currentRelPos;
+
+            if (!vessel.HoldPhysics)
+            {
+                partRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
+                
+                offsetX = Math.Abs(parentRot.x - partRot.x);
+                offsetY = Math.Abs(parentRot.y - partRot.y);
+                offsetZ = Math.Abs(parentRot.z - partRot.z);
+                offsetW = Math.Abs(parentRot.w - partRot.w);
+                timeOffsetX = Math.Abs(offsetX - prevOffsetX);
+                timeOffsetY = Math.Abs(offsetY - prevOffsetY);
+                timeOffsetZ = Math.Abs(offsetZ - prevOffsetZ);
+                timeOffsetW = Math.Abs(offsetW - prevOffsetW);
+
+                if (this.part.parent == null)
+                {
+                    parentRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
+                }
+                else
+                {
+                    if (this.part.parent.PhysicsSignificance == 1)
+                    {
+                        parentRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
+                    }
+                    else
+                    {
+                        parentRot = this.part.parent.transform.localRotation * this.part.parent.orgRot.Inverse();
+                        if (timeOffsetX > 0.0005 | timeOffsetY > 0.0005 | timeOffsetZ > 0.0005)
+                        {
+                            creakingSoundVolume = 3;
+                            creakingSoundPlaying = true;                                                       
+                            if (timeOffsetX > 0.005 | timeOffsetY > 0.005 | timeOffsetZ > 0.005)
+                            {
+                                creakingSoundVolume = 5;
+                                breakingIgnite = true;
+                                highlighterEnabled = true; 
+                            }
+                            else
+                            {
+                                breakingIgnite = false;
+                            }
+                        }
+                        else
+                        {
+                            creakingSoundPlaying = false;
+                            breakingIgnite = false;
+                        }
+                        prevOffsetX = offsetX;
+                        prevOffsetY = offsetY;
+                        prevOffsetZ = offsetZ;
+                        prevOffsetW = offsetW;
+                    }
+                }
+                if (highlighterEnabled == true)
+                {
+                    this.part.SetHighlightDefault();
+                    this.part.SetHighlightColor(Color.blue);
+                    this.part.SetHighlightType(Part.HighlightType.AlwaysOn);
+                    this.part.SetHighlight(true, false);
+                    hightlighterTimerCurrent += Time.deltaTime;
+                    if (hightlighterTimerCurrent >= highlighterTimerTotal)
+                    {
+                        hightlighterTimerCurrent -= highlighterTimerTotal;
+                        this.part.SetHighlightDefault();
+                        highlighterEnabled = false;
+                    }
+                }
+                if (!vessel.HoldPhysics && breakOK)
+                {
+                    breakingTimerCurrent += Time.deltaTime;
+                    if (breakingTimerCurrent >= breakingTimerTotal)
+                    {
+                        breakingTimerCurrent -= breakingTimerTotal;
+                        if (breakingIgnite == true)
+                        {
+                            float dice = UnityEngine.Random.Range(0, 100);
+                            if (dice <= riskOfFireJointRotation)
+                            {
+                                isOnFire = true;
+                            }
+                            breakingIgnite = false;
+                        }
+                    }
+                }
+            }
         }
-        
+        /*
         private void groundControlRiskReduction()
         {
             //add antenna
@@ -544,10 +664,49 @@ namespace wildfire
         //Calculate Risk of part
         //Make more realistic
 
+        public float riskTimerCurrent = 0f;
+        public float riskTimerTotal = 10f;
+ 
+        private void riskReductionCountdown()
+        {
+            if (!sprinklerActvated) return;
+            if (sprinklerActvated)
+            {
+                riskSubstractionMultiplier = 0.5;
+                riskTimerCurrent += Time.deltaTime;
+                if (riskTimerCurrent >= riskTimerTotal)
+                {
+                    riskTimerCurrent -= riskTimerTotal;
+                    riskSubstractionMultiplier = 1;
+                    sprinklerActvated = false;
+                }
+            }
+        }
+
+        private void launchpadRiskReduction()
+        {
+            if (!this.part.vessel.LandedOrSplashed) return;
+            if (this.part.vessel.LandedOrSplashed)
+            {
+                foreach (Part p in this.part.vessel.parts)
+                {
+                    if (p.Modules.Contains("ModuleSprinkler"))
+                    {
+                        var pm = p.Modules.OfType<ModuleSprinkler>().Single();
+                        pm = p.FindModulesImplementing<ModuleSprinkler>().First();
+                        if (pm.isSafe == true)
+                        {
+                            sprinklerActvated = true;
+                        }
+                    }
+                }
+            }
+        }
+
         private void riskCalculation()
         {
             double addedRisk = 0;
-            double riskMultiplier = 1;
+            double riskMultiplier = 1;            
 
             //Add risk for cabin
             if (this.part.CrewCapacity > 0)
@@ -658,8 +817,8 @@ namespace wildfire
                     if (r.resourceName.Contains("ElectricCharge") && r.amount > 0)
                     {
                         hasElectricCharge = true;
-                        electricChargeRisk = (r.amount / r.maxAmount * 1);
-                        riskMultiplier += (r.amount / r.maxAmount * 0.05);
+                        electricChargeRisk = (r.amount / r.maxAmount * 5);
+                        riskMultiplier += (r.amount / r.maxAmount * 0.2);
                     }
                     else
                     {
@@ -669,7 +828,7 @@ namespace wildfire
                     {
                         
                         hasOxidizer = true;
-                        oxidizerRisk += (r.amount / r.maxAmount * 20);
+                        oxidizerRisk += (r.amount / r.maxAmount * 15);
                         riskMultiplier += (r.amount / r.maxAmount * 0.2);
                     }
                     else
@@ -679,7 +838,7 @@ namespace wildfire
                     if (r.resourceName.Contains("LiquidFuel") && r.amount > 0)
                     {
                         hasLiquidFuel = true;
-                        liquidFuelRisk += (r.amount / r.maxAmount * 20);
+                        liquidFuelRisk += (r.amount / r.maxAmount * 10);
                     }
                     else
                     {
@@ -688,7 +847,7 @@ namespace wildfire
                     if (r.resourceName.Contains("MonoPropellant") && r.amount > 0)
                     {
                         hasMonoprop = true;
-                        monoPropellantRisk += (r.amount / r.maxAmount * 20);
+                        monoPropellantRisk += (r.amount / r.maxAmount * 15);
                         riskMultiplier += (r.amount / r.maxAmount * 0.2);
                     }
                     else
@@ -698,7 +857,7 @@ namespace wildfire
                     if (r.resourceName.Contains("SolidFuel") && r.amount > 0)
                     {
                         hasSolidFuel = true;
-                        solidFuelRisk += (r.amount / r.maxAmount * 10);
+                        solidFuelRisk += (r.amount / r.maxAmount * 15);
                         riskMultiplier += (r.amount / r.maxAmount * 0.1);
                     }
                     else
@@ -706,6 +865,7 @@ namespace wildfire
                         hasSolidFuel = false;
                     }
                 }
+
                 addedRisk += (monoPropellantRisk + liquidFuelRisk + oxidizerRisk + solidFuelRisk);
                 oxidizerRisk = 0;
                 liquidFuelRisk = 0;
@@ -767,12 +927,13 @@ namespace wildfire
             }
 
             //Final calculations           
-            riskOfFireOverHeat = (baseRisk + addedRisk) * riskMultiplier * overheatRiskMultiplier;
-            riskOfFireSpread = (baseRisk + addedRisk) * riskMultiplier * spreadRiskMultiplier;
-            riskOfFireExplosions = (baseRisk + addedRisk) * riskMultiplier * explosionRiskMultiplier;
-            riskOfFireBumping = (baseRisk + addedRisk) * riskMultiplier * bumpingRiskMultiplier;
-            riskOfFireSplashDamage = ((baseRisk + addedRisk) / 2 ) * riskMultiplier * splashDamageRiskMultiplier;
-            totalAddedRisk = Math.Floor((baseRisk + addedRisk) * riskMultiplier * explosionRiskMultiplier);
+            riskOfFireOverHeat = (((baseRisk + addedRisk) * riskMultiplier) * overheatRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireSpread = (((baseRisk + addedRisk) * riskMultiplier) * spreadRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireExplosions = (((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireBumping = (((baseRisk + addedRisk) * riskMultiplier) * bumpingRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireSplashDamage = ((((baseRisk + addedRisk) / 2) * riskMultiplier) * splashDamageRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireJointRotation = ((((baseRisk + addedRisk)) * riskMultiplier) * jointRotationRiskMultiplier) * riskSubstractionMultiplier;
+            totalAddedRisk = Math.Floor(((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * riskSubstractionMultiplier;
             addedRisk = 0;
             riskMultiplier = 1;
         }
@@ -953,7 +1114,7 @@ namespace wildfire
 
         //Ticker
         private float timerCurrent = 0f;
-        private float timerTotal = 2f;
+        private float timerTotal = 2f;        
         private void tickHandler()
         {
             timerCurrent += Time.deltaTime;
@@ -966,6 +1127,7 @@ namespace wildfire
                 checkExtinguisherStatus();
                 extinguisher();
                 extraHazards();
+                breakOK = true;
             }
         }
 
@@ -1038,6 +1200,10 @@ namespace wildfire
                 }
             }
         }
+        public void onStageActivate(int i)
+        {
+            breakOK = false;
+        }
 
         /*
         //may need
@@ -1056,9 +1222,6 @@ namespace wildfire
         public void onStageSeparation(EventReport data)
         {    
         }
-        public void onStageActivate(int i)
-        {   
-        }
         public void onSplashDamage(EventReport data)
         {    
         }
@@ -1072,10 +1235,12 @@ namespace wildfire
             {
                 tickHandler();
                 combust();
-                //breakingCheck();
+                breakingCheck();
                 runVisualFX();
                 extinguisherFX();
                 powerUsage();
+                launchpadRiskReduction();
+                riskReductionCountdown();
                 checkParts();
             }
         }
@@ -1085,7 +1250,8 @@ namespace wildfire
             if (state == StartState.Editor || state == StartState.None) return;
             excludeParts();
             if (!isExcluded)
-            {               
+            {
+                timerCurrent = UnityEngine.Random.Range(0f, 2f);
                 setupVisualFx();
                 setupAudio();
                 checkExtinguisherStatus(); 
@@ -1096,18 +1262,24 @@ namespace wildfire
                 GameEvents.onGameUnpause.Add(onGameUnpause);
                 GameEvents.onVesselWillDestroy.Add(onVesselWillDestroy);
                 GameEvents.onSplashDamage.Add(onSplashDamage);
+                GameEvents.onStageActivate.Add(onStageActivate);
+                //GameEvents.onLaunch.Add(onLaunch);
+                //GameEvents.onPartUnpack.Add(onPartUnpack);
+                //GameEvents.onFlightReady.Add(onFlightReady);
+                //GameEvents.onVesselGoOffRails.Add(onVesselGoOffRails);
+                //GameEvents.onVesselGoOnRails.Add(onVesselGoOnRails);
                 //GameEvents.onCrash.Add(onCrash);
                 //GameEvents.onEditorShipModified.Add(onEditiorShipModified);
                 //GameEvents.onJointBreak.Add(onJointBreak);
                 //GameEvents.onLevelWasLoaded.Add(onLevelWasLoaded);
                 //GameEvents.onPartExplode.Add(onPartExplode);
-                //GameEvents.onPartJointBreak.Add(onPartJointBreak);
-                //GameEvents.onStageActivate.Add(onStageActivate);
+                //GameEvents.onPartJointBreak.Add(onPartJointBreak);                
                 //GameEvents.onStageSeparation.Add(onStageSeparation);
                 //GameEvents.onPartUndock.Add(onPartUndock);
                 //GameEvents.onVesselChange.Add(onVesselChange);
                 //GameEvents.onVesselLoaded.Add(onVesselLoaded);
-                //GameEvents.onVesselWasModified.Add(onVesselWasModified);    
+                //GameEvents.onVesselWasModified.Add(onVesselWasModified);   
+                
             }
             base.OnStart(state);
         }
