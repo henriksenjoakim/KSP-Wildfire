@@ -61,7 +61,6 @@ namespace wildfire
         public bool overRotation = false;
         public double riskSubstractionMultiplier = 1;
         public bool sprinklerActvated = false;
-        public bool breakOK = true;
 
         [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Risk")]
         public double totalAddedRisk = 0;
@@ -336,7 +335,7 @@ namespace wildfire
             float dice = UnityEngine.Random.Range(0, 100);
             if (er.origin == this.part && dice < riskOfFireSplashDamage && isHeatshield == false)
             {
-
+                isOnFire = true;
             }
         }
 
@@ -421,7 +420,7 @@ namespace wildfire
         }
     
         //UNDER CONSTRUCTION      
-        
+
         public float creakingSoundVolume = 1;
         Quaternion partRot;
         Quaternion parentRot;
@@ -459,7 +458,7 @@ namespace wildfire
         private float highlighterTimerTotal = 1f;
         public bool highlighterEnabled = false;
         private float breakingTimerCurrent = 0f;
-        private float breakingTimerTotal = 2f;
+        private float breakingTimerTotal = 1f;
         public bool breakingIgnite = false;
 
         private void breakingCheck()
@@ -467,6 +466,7 @@ namespace wildfire
 
             if (!vessel.HoldPhysics)
             {
+
                 partRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
                 
                 offsetX = Math.Abs(parentRot.x - partRot.x);
@@ -491,11 +491,11 @@ namespace wildfire
                     else
                     {
                         parentRot = this.part.parent.transform.localRotation * this.part.parent.orgRot.Inverse();
-                        if (timeOffsetX > 0.0005 | timeOffsetY > 0.0005 | timeOffsetZ > 0.0005)
+                        if (timeOffsetX > 0.002 | timeOffsetY > 0.002 | timeOffsetZ > 0.002)
                         {
-                            creakingSoundVolume = 3;
+                            creakingSoundVolume = 2;
                             creakingSoundPlaying = true;                                                       
-                            if (timeOffsetX > 0.005 | timeOffsetY > 0.005 | timeOffsetZ > 0.005)
+                            if ((timeOffsetX > 0.005 && timeOffsetX < 0.1) | (timeOffsetY > 0.005 && timeOffsetY < 0.1)| (timeOffsetZ > 0.005 && timeOffsetZ < 0.1))
                             {
                                 creakingSoundVolume = 5;
                                 breakingIgnite = true;
@@ -531,7 +531,7 @@ namespace wildfire
                         highlighterEnabled = false;
                     }
                 }
-                if (!vessel.HoldPhysics && breakOK)
+                if (!vessel.HoldPhysics)
                 {
                     breakingTimerCurrent += Time.deltaTime;
                     if (breakingTimerCurrent >= breakingTimerTotal)
@@ -703,10 +703,17 @@ namespace wildfire
             }
         }
 
+        double dynamicPressureRisk;
+        double gforceRisk;
+
         private void riskCalculation()
         {
             double addedRisk = 0;
-            double riskMultiplier = 1;            
+            double riskMultiplier = 1;
+
+            dynamicPressureRisk = 1 + ((this.part.vessel.srf_velocity.sqrMagnitude * this.part.vessel.atmDensity / 2) * 0.000002);
+          
+            gforceRisk = 1 + (this.part.vessel.geeForce * 0.02);
 
             //Add risk for cabin
             if (this.part.CrewCapacity > 0)
@@ -927,13 +934,13 @@ namespace wildfire
             }
 
             //Final calculations           
-            riskOfFireOverHeat = (((baseRisk + addedRisk) * riskMultiplier) * overheatRiskMultiplier) * riskSubstractionMultiplier;
-            riskOfFireSpread = (((baseRisk + addedRisk) * riskMultiplier) * spreadRiskMultiplier) * riskSubstractionMultiplier;
-            riskOfFireExplosions = (((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * riskSubstractionMultiplier;
-            riskOfFireBumping = (((baseRisk + addedRisk) * riskMultiplier) * bumpingRiskMultiplier) * riskSubstractionMultiplier;
-            riskOfFireSplashDamage = ((((baseRisk + addedRisk) / 2) * riskMultiplier) * splashDamageRiskMultiplier) * riskSubstractionMultiplier;
-            riskOfFireJointRotation = ((((baseRisk + addedRisk)) * riskMultiplier) * jointRotationRiskMultiplier) * riskSubstractionMultiplier;
-            totalAddedRisk = Math.Floor(((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * riskSubstractionMultiplier;
+            riskOfFireOverHeat = (((((baseRisk + addedRisk) * riskMultiplier) * overheatRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            riskOfFireSpread = (((((baseRisk + addedRisk) * riskMultiplier) * spreadRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            riskOfFireExplosions = (((((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            riskOfFireBumping = (((((baseRisk + addedRisk) * riskMultiplier) * bumpingRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            riskOfFireSplashDamage = ((((((baseRisk + addedRisk) / 2) * riskMultiplier) * splashDamageRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            riskOfFireJointRotation = ((((((baseRisk + addedRisk)) * riskMultiplier) * jointRotationRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier;
+            totalAddedRisk = Math.Floor((((((baseRisk + addedRisk) * riskMultiplier) * explosionRiskMultiplier) * gforceRisk) * dynamicPressureRisk) * riskSubstractionMultiplier);
             addedRisk = 0;
             riskMultiplier = 1;
         }
@@ -1127,7 +1134,6 @@ namespace wildfire
                 checkExtinguisherStatus();
                 extinguisher();
                 extraHazards();
-                breakOK = true;
             }
         }
 
@@ -1200,10 +1206,6 @@ namespace wildfire
                 }
             }
         }
-        public void onStageActivate(int i)
-        {
-            breakOK = false;
-        }
 
         /*
         //may need
@@ -1262,7 +1264,6 @@ namespace wildfire
                 GameEvents.onGameUnpause.Add(onGameUnpause);
                 GameEvents.onVesselWillDestroy.Add(onVesselWillDestroy);
                 GameEvents.onSplashDamage.Add(onSplashDamage);
-                GameEvents.onStageActivate.Add(onStageActivate);
                 //GameEvents.onLaunch.Add(onLaunch);
                 //GameEvents.onPartUnpack.Add(onPartUnpack);
                 //GameEvents.onFlightReady.Add(onFlightReady);
