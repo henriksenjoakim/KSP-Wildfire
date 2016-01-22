@@ -31,12 +31,12 @@ When a part is on fire it will gradually overheat based on its contents. Connect
 
 [Igniting events] A part may catch fire when:
 
-- ...the temperature of a part reaches 70+% it may catch fire.
-- ...a part is on fire connected parts may catch fire.
-- ...a part collides with another object with a velocity of 90+% of its rated crash tolerance it may catch fire.
-- ...a part explodes, connected parts may catch fire.
-- ...a part takes exhaust from an engine it may catch fire.
-- ...a part flexes too much from it's connected part, it may catch fire. I.e. Wobbliness, bending (NEW in 0.1.3).
+- ...the temperature of a part reaches 70+%.
+- ...a part is on fire connected parts.
+- ...a part collides with another object and rotates the joint out of its original position.
+- ...a connected part explodes.
+- ...a part takes exhaust from an engine.
+- ...a part flexes too much in relation to its connected part. I.e. Wobbliness, bending (NEW in 0.1.3).
 
 Whether or not a part will catch fire at either event mentioned above is dependent on type of part and its contents. At its current state it takes into consider [Risk factors]:
 
@@ -61,7 +61,7 @@ Consequently, the mod also considers situations when a fire is doused:
 
 Parts with decouplers are immune to connected explosions. Parts with heat-shield does not catch fire. Fuel lines and struts are excluded.
 
-Whenever a part is subjected to excess bending from it's parent part you may hear a "creaking"-sound. If the part bends above the set bending limit (WIP) a blue highlight will indicate that the part is under stress, and you will hear a louder creaking-sound. At this point the part may catch fire according to the risk factor for the specific part.
+Whenever a part is subjected to excess bending from its parent part you may hear a "creaking"-sound. If the part bends above the set bending limit (WIP) a blue highlight will indicate that the part is under stress, and you will hear a louder creaking-sound. At this point the part may catch fire according to the risk factor for the specific part.
 
 
 Required add-ons:
