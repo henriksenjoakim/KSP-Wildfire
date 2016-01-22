@@ -32,10 +32,10 @@ When a part is on fire it will gradually overheat based on its contents. Connect
 [Igniting events] A part may catch fire when:
 
 - ...the temperature of a part reaches 70+%.
-- ...a part is on fire connected parts.
-- ...a part collides with another object and rotates the joint out of its original position.
+- ...a connected part is on fire.
+- ...a part collides with another object and rotates its original position.
 - ...a connected part explodes.
-- ...a part takes exhaust from an engine.
+- ...a part takes exhaust damage from an engine.
 - ...a part flexes too much in relation to its connected part. I.e. Wobbliness, bending (NEW in 0.1.3).
 
 Whether or not a part will catch fire at either event mentioned above is dependent on type of part and its contents. At its current state it takes into consider [Risk factors]:
