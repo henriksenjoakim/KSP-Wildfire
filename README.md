@@ -16,11 +16,12 @@ As commander of your sheep, you may want to herd your crew to the pre-installed 
 Incidentally, the add-on also comes included with a fire extinguisher system. 
 
 Package contents:
-   1x Automatic fire extinguisher part (Monopropellant tank clone under Utilities). When activated it will automatically try to douse fires at the cost of liquid CO2 and electric charge.
-    1x Automatic fire alarm (Pre-installed in every cockpit).
-    1x Right-click risk info menu. Indicates the highest possible fire risk on the selected part.
-    1x Various fire hazards.
-    1x Water sprinkler with built in sparkler (2 in 1! For performance!). It's a stage-able part in the Utility section (linear RCS clone) when activated, it will start up an give you 5 beeps, and a long beep at the end indicating it's ready. When ready, it will give you a few seconds of halved risk factor for every part! Note: It will only work when landed, and you have to launch before it stops to reap the benefits (NEW in 0.1.3).
+- 1x Automatic fire extinguisher part (Monopropellant tank clone under Utilities). When activated it will automatically try to douse fires at the cost of liquid CO2 and electric charge.
+- 1x Automatic fire alarm (Pre-installed in every cockpit).
+- 1x Right-click risk info menu. Indicates the highest possible fire risk on the selected part.
+- Various fire hazards.
+- 1x Water sprinkler with built in sparkler (2 in 1! For performance!). It's a stage-able part in the Utility section (linear RCS clone) when activated, it will start up an give you 5 beeps, and a long beep at the end indicating it's ready. When ready, it will give you a few seconds of halved risk factor for every part! Note: It will only work when landed, and you have to launch before it stops to reap the benefits (NEW in 0.1.3).
+
 
 
 
@@ -65,7 +66,7 @@ Whenever a part is subjected to excess bending from it's parent part you may hea
 
 Required add-ons:
    ModuleManager (http://forum.kerbalspaceprogram.com/index.php?/topic/50533-105-module-manager-2617-january-10th-with-even-more-sha-and-less-bug/) (Adds mod functionality to all parts in game, can be edited in the config-file if you want to exclude parts.)
-    Community Resource Pack (https://kerbalstuff.com/mod/974/Community%20Resource%20Pack) (Uses Liquid CO2.)
+   Community Resource Pack (https://kerbalstuff.com/mod/974/Community%20Resource%20Pack) (Uses Liquid CO2.)
 
 
 Considered features (may or may not come):
