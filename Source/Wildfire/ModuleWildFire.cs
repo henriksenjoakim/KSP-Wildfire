@@ -61,6 +61,10 @@ namespace wildfire
         public bool overRotation = false;
         public double riskSubstractionMultiplier = 1;
         public bool sprinklerActvated = false;
+        public bool isWheel = false;
+        public bool cooldown = false;
+        public bool breakOK = true;
+        public double highestBend;
 
         [KSPField(guiActive = true, guiActiveEditor = false, isPersistant = false, guiName = "Risk")]
         public double totalAddedRisk = 0;
@@ -339,17 +343,39 @@ namespace wildfire
             }
         }
 
-
+        /*
         //Check for COLLISIONS
-        public void fOnCollisionEnter(Collision c)
+        public void OnCollisionEnter(Collision c)
         {
-            float dice = UnityEngine.Random.Range(0, 100);       
-            if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && dice <= riskOfFireBumping && isHeatshield == false)
-            {                
-                isOnFire = true;
+            if (1 == 1)
+            {
+                Debug.Log("WF:" + this.part.name + ", Tol:" + ((this.part.crashTolerance * 10) ) + " M: " + c.relativeVelocity.magnitude);
+                float dice = UnityEngine.Random.Range(0, 100);
+                if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 0.9) && dice <= riskOfFireBumping && isHeatshield == false && isWheel == false)
+                {
+                    //Debug.Log("WF:" + this.part.name + ", Tol:" + (this.part.crashTolerance * 0.9) + " M: " + c.relativeVelocity.magnitude);
+                    //isOnFire = true;
+                }
             }
         }
-
+        
+        private float collisionTimerCurrent = 0f;
+        private float collisionTimerTotal = 2f;
+        public void fOnCollisionStay(Collision c)
+        {            
+            collisionTimerCurrent += Time.deltaTime;
+            if (collisionTimerCurrent >= collisionTimerTotal)
+            {
+                collisionTimerCurrent -= collisionTimerTotal;
+                float dice = UnityEngine.Random.Range(0, 100);
+                if (c.relativeVelocity.magnitude > (this.part.crashTolerance * 10) && dice <= riskOfFireBumping && isHeatshield == false && isWheel == false)
+                {
+                    Debug.Log("WF: IS COLISSION Stay" +this.part.name);
+                    isOnFire = true;
+                }
+            }
+        }
+        */
         //Check for PART LOSS
         private void onPartDie(Part p)
         {          
@@ -459,25 +485,13 @@ namespace wildfire
         public bool highlighterEnabled = false;
         private float breakingTimerCurrent = 0f;
         private float breakingTimerTotal = 1f;
-        public bool breakingIgnite = false;
 
-        private void breakingCheck()
+        public void breakingStatup()
         {
-
-            if (!vessel.HoldPhysics)
+            if (!this.part.vessel.HoldPhysics && breakOK == false)
             {
 
                 partRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
-                
-                offsetX = Math.Abs(parentRot.x - partRot.x);
-                offsetY = Math.Abs(parentRot.y - partRot.y);
-                offsetZ = Math.Abs(parentRot.z - partRot.z);
-                offsetW = Math.Abs(parentRot.w - partRot.w);
-                timeOffsetX = Math.Abs(offsetX - prevOffsetX);
-                timeOffsetY = Math.Abs(offsetY - prevOffsetY);
-                timeOffsetZ = Math.Abs(offsetZ - prevOffsetZ);
-                timeOffsetW = Math.Abs(offsetW - prevOffsetW);
-
                 if (this.part.parent == null)
                 {
                     parentRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
@@ -491,25 +505,80 @@ namespace wildfire
                     else
                     {
                         parentRot = this.part.parent.transform.localRotation * this.part.parent.orgRot.Inverse();
-                        if (timeOffsetX > 0.002 | timeOffsetY > 0.002 | timeOffsetZ > 0.002)
+                    }
+                }
+                offsetX = Math.Abs(parentRot.x - partRot.x);
+                offsetY = Math.Abs(parentRot.y - partRot.y);
+                offsetZ = Math.Abs(parentRot.z - partRot.z);
+                offsetW = Math.Abs(parentRot.w - partRot.w);
+                timeOffsetX = Math.Abs(offsetX - prevOffsetX);
+                timeOffsetY = Math.Abs(offsetY - prevOffsetY);
+                timeOffsetZ = Math.Abs(offsetZ - prevOffsetZ);
+                timeOffsetW = Math.Abs(offsetW - prevOffsetW);
+
+                prevOffsetX = offsetX;
+                prevOffsetY = offsetY;
+                prevOffsetZ = offsetZ;
+                prevOffsetW = offsetW;
+
+            }
+        }
+
+        
+
+        private void breakingCheck()
+        {
+            if (breakOK == true)
+            if (!this.part.vessel.HoldPhysics)
+            {
+                partRot = this.part.transform.localRotation * this.part.orgRot.Inverse();               
+                if (this.part.parent == null)
+                {
+                    parentRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
+                }
+                else
+                {
+                    if (this.part.parent.PhysicsSignificance == 1)
+                    {
+                        parentRot = this.part.transform.localRotation * this.part.orgRot.Inverse();
+                    }
+                    else
+                    {
+                        parentRot = this.part.parent.transform.localRotation * this.part.parent.orgRot.Inverse();
+
+                        offsetX = Math.Abs(parentRot.x - partRot.x);
+                        offsetY = Math.Abs(parentRot.y - partRot.y);
+                        offsetZ = Math.Abs(parentRot.z - partRot.z);
+                        offsetW = Math.Abs(parentRot.w - partRot.w);
+                        timeOffsetX = Math.Abs(offsetX - prevOffsetX);
+                        timeOffsetY = Math.Abs(offsetY - prevOffsetY);
+                        timeOffsetZ = Math.Abs(offsetZ - prevOffsetZ);
+                        timeOffsetW = Math.Abs(offsetW - prevOffsetW);
+
+                        
+                        if (timeOffsetX > 0.004 | timeOffsetY > 0.004 | timeOffsetZ > 0.004)
                         {
-                            creakingSoundVolume = 2;
-                            creakingSoundPlaying = true;                                                       
-                            if ((timeOffsetX > 0.005 && timeOffsetX < 0.1) | (timeOffsetY > 0.005 && timeOffsetY < 0.1)| (timeOffsetZ > 0.005 && timeOffsetZ < 0.1))
+                            highestBend = (Math.Max(Math.Max(timeOffsetX, timeOffsetY), timeOffsetZ));
+                            creakingSoundVolume = 3;
+                            creakingSoundPlaying = true;
+                            if ((timeOffsetX > 0.005 && timeOffsetX < 0.1) | (timeOffsetY > 0.005 && timeOffsetY < 0.1) | (timeOffsetZ > 0.005 && timeOffsetZ < 0.1))
                             {
                                 creakingSoundVolume = 5;
-                                breakingIgnite = true;
-                                highlighterEnabled = true; 
-                            }
-                            else
-                            {
-                                breakingIgnite = false;
+                                highlighterEnabled = true;
+                                if (cooldown == false)
+                                {
+                                    float dice = UnityEngine.Random.Range(0, 100);
+                                    if (dice <= riskOfFireJointRotation && !this.part.vessel.HoldPhysics)
+                                    {
+                                        isOnFire = true;
+                                        cooldown = true;
+                                    }
+                                } 
                             }
                         }
                         else
                         {
                             creakingSoundPlaying = false;
-                            breakingIgnite = false;
                         }
                         prevOffsetX = offsetX;
                         prevOffsetY = offsetY;
@@ -530,26 +599,24 @@ namespace wildfire
                         this.part.SetHighlightDefault();
                         highlighterEnabled = false;
                     }
-                }
-                if (!vessel.HoldPhysics)
+                }           
+            }            
+        }
+        
+        
+        public void coolDownTimer()
+        {
+            if (cooldown)
+            {
+                breakingTimerCurrent += Time.deltaTime;
+                if (breakingTimerCurrent >= breakingTimerTotal)
                 {
-                    breakingTimerCurrent += Time.deltaTime;
-                    if (breakingTimerCurrent >= breakingTimerTotal)
-                    {
-                        breakingTimerCurrent -= breakingTimerTotal;
-                        if (breakingIgnite == true)
-                        {
-                            float dice = UnityEngine.Random.Range(0, 100);
-                            if (dice <= riskOfFireJointRotation)
-                            {
-                                isOnFire = true;
-                            }
-                            breakingIgnite = false;
-                        }
-                    }
+                    breakingTimerCurrent -= breakingTimerTotal;
+                    cooldown = false;
                 }
             }
         }
+
         /*
         private void groundControlRiskReduction()
         {
@@ -1117,6 +1184,10 @@ namespace wildfire
             {
                 hasCrossfeed = true;
             }
+            if (this.part.Modules.Contains("ModuleWheel") | this.part.Modules.Contains("ModuleLandingGear"))
+            {
+                isWheel = true;
+            }
         }
 
         //Ticker
@@ -1134,6 +1205,7 @@ namespace wildfire
                 checkExtinguisherStatus();
                 extinguisher();
                 extraHazards();
+                breakingStatup();
             }
         }
 
@@ -1175,6 +1247,7 @@ namespace wildfire
             {
                 extinguisherFx.particleEmitter.emit = false;
             }
+            breakOK = false;
             GameEvents.onGamePause.Remove(onGamePause);
             GameEvents.onGameUnpause.Remove(onGameUnpause);
         }
@@ -1238,6 +1311,7 @@ namespace wildfire
                 tickHandler();
                 combust();
                 breakingCheck();
+                coolDownTimer();
                 runVisualFX();
                 extinguisherFX();
                 powerUsage();

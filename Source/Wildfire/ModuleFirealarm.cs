@@ -25,6 +25,7 @@ namespace wildfire
         public bool creaking = false;
         public bool commandModulePresent = false;
         public float creakingAudioVolume = 1;
+        public float highestBend;
 
         public void checkForFires()
         {
@@ -53,6 +54,7 @@ namespace wildfire
                         {
                             creakingSound += 1;
                         }
+                        highestBend = Convert.ToSingle(pp.highestBend);
                         creakingAudioVolume = pp.creakingSoundVolume;
                     }
                 }
@@ -177,9 +179,10 @@ namespace wildfire
         }
 
         public void creakingHandler()
-        {
+        {            
             if (creaking)
             {
+                creakingAudio.audio.pitch = UnityEngine.Random.Range(1 - highestBend, 1 + highestBend);
                 if (FlightGlobals.ActiveVessel.isEVA == false && commandModulePresent)
                 {
                     if (creakingAudio != null)
@@ -205,7 +208,7 @@ namespace wildfire
                 timerCurrent -= timerTotal;
                 checkForFires();
                 alarmHandler();
-                creakingHandler();
+                
                 clearAudioHandler();
             }
         }
@@ -213,6 +216,7 @@ namespace wildfire
         public void Update()
         {
             tickHandler();
+            creakingHandler();
             if (generalAlarm.isPlaying || panicAlarm.isPlaying || clearAudio.isPlaying || creakingAudio.isPlaying)
             {
                 soundObject.transform.position = FlightGlobals.ActiveVessel.transform.position;
