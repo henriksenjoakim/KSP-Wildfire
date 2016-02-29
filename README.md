@@ -82,4 +82,4 @@ Considered features (may or may not come):
 - Dynamic variables
 
 
-Copyringt: All Rights Reserved
+Copyright: All Rights Reserved
